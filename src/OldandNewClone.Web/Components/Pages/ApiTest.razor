@@ -1,0 +1,89 @@
+@page "/api-test"
+@inject HttpClient Http
+
+<PageTitle>API Test - OldandNew Clone</PageTitle>
+
+<div style="max-width: 1200px; margin: 0 auto; padding: 20px;">
+    <h1>🧪 API Test Dashboard</h1>
+
+    <div style="margin: 20px 0;">
+        <button @onclick="TestHealth" style="background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
+            Test Health
+        </button>
+        <button @onclick="TestDatabase" style="background: #17a2b8; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
+            Test Database
+        </button>
+        <button @onclick="TestGetSongs" style="background: #ffc107; color: black; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
+            Get Songs
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(result))
+    {
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
+            <h3>Response:</h3>
+            <pre style="background: white; padding: 15px; border-radius: 5px; overflow-x: auto; max-height: 500px; overflow-y: auto;">@result</pre>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div style="background: #f8d7da; padding: 20px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #dc3545;">
+            <h3 style="color: #721c24;">Error:</h3>
+            <pre style="color: #721c24;">@error</pre>
+        </div>
+    }
+</div>
+
+@code {
+    private string result = "";
+    private string error = "";
+
+    private async Task TestHealth()
+    {
+        try
+        {
+            error = "";
+            result = "Loading...";
+            var response = await Http.GetStringAsync("/api/health");
+            result = response;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            result = "";
+        }
+    }
+
+    private async Task TestDatabase()
+    {
+        try
+        {
+            error = "";
+            result = "Loading...";
+            var response = await Http.GetStringAsync("/api/health/database");
+            result = response;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            result = "";
+        }
+    }
+
+    private async Task TestGetSongs()
+    {
+        try
+        {
+            error = "";
+            result = "Loading...";
+            var response = await Http.GetStringAsync("/api/songs");
+            result = response;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            result = "";
+        }
+    }
+}

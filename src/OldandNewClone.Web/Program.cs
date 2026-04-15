@@ -8,6 +8,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Add HttpClient for API testing
+builder.Services.AddHttpClient();
+builder.Services.AddScoped(sp => 
+{
+    var client = new HttpClient { BaseAddress = new Uri("https://localhost:5001") };
+    return client;
+});
+
 // Add Application and Infrastructure layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
