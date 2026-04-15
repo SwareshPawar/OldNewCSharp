@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OldandNewClone.Application/OldandNewClone.Application.csproj" />
+    <Project Path="src/OldandNewClone.Domain/OldandNewClone.Domain.csproj" />
+    <Project Path="src/OldandNewClone.Infrastructure/OldandNewClone.Infrastructure.csproj" />
+    <Project Path="src/OldandNewClone.MobileDesktop/OldandNewClone.MobileDesktop.csproj" />
+    <Project Path="src/OldandNewClone.Web/OldandNewClone.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OldandNewClone.IntegrationTests/OldandNewClone.IntegrationTests.csproj" />
+    <Project Path="tests/OldandNewClone.UnitTests/OldandNewClone.UnitTests.csproj" />
+  </Folder>
+</Solution>
