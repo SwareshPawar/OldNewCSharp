@@ -1,6 +1,6 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">OldandNewClone.MobileDesktop</a>
+        <a class="navbar-brand" href="">🎵 OldandNew</a>
     </div>
 </div>
 
@@ -8,20 +8,66 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
+
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
+
+        <div class="nav-section-label px-3">SONGS</div>
+
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            <NavLink class="nav-link" href="songs">
+                <span class="bi bi-music-note-list" aria-hidden="true"></span> Song Library
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+
+        @if (UserState.IsLoggedIn)
+        {
+            <div class="nav-section-label px-3">MY MUSIC</div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="favorites">
+                    <span class="bi bi-heart-fill" aria-hidden="true"></span> Favorites
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="setlist">
+                    <span class="bi bi-list-check" aria-hidden="true"></span> Setlists
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="profile">
+                    <span class="bi bi-person-circle" aria-hidden="true"></span> @UserState.DisplayName
+                </NavLink>
+            </div>
+        }
+        else
+        {
+            <div class="nav-section-label px-3">ACCOUNT</div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Login
+                </NavLink>
+            </div>
+        }
     </nav>
 </div>
+
+<style>
+    .nav-section-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: rgba(255,255,255,0.4);
+        padding-top: 14px;
+        padding-bottom: 4px;
+        text-transform: uppercase;
+    }
+</style>
+
+@inject UserStateService UserState

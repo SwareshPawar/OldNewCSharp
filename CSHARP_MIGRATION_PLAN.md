@@ -122,107 +122,41 @@ Result: Both Node.js and .NET users can login without data changes
 
 ---
 
-### 🔄 Phase 4: Core Features Migration (IN PROGRESS)
-**Status**: Next
-**Timeline**: Week 3-4
-
-**Objectives**:
-- Port song management features
-- Implement user data management
-- Add music theory features (key transposition)
-- Create search and filtering
-
-**Node.js Features to Port**:
-
-#### 4.1 Song Management
-**Node.js Endpoints**:
-```javascript
-GET    /api/songs              // List all songs
-POST   /api/songs              // Create song (auth required)
-PUT    /api/songs/:id          // Update song (auth required)
-DELETE /api/songs/:id          // Delete song (auth required)
-GET    /api/songs/:id          // Get single song
-```
-
-**C# Implementation Plan**:
-- ✅ Song entity already exists
-- ✅ SongRepository already exists
-- ✅ SongService already exists
-- ✅ SongsController already exists
-- ⏳ Need to add authorization attributes
-- ⏳ Need to verify MongoDB operations
-- ⏳ Need to add Blazor UI pages
+### ✅ Phase 4: Core Features Migration (COMPLETED - Song Management)
+**Status**: Done
+**Timeline**: Week 3
 
 **Deliverables**:
-- [ ] Songs.razor (list view)
-- [ ] SongDetails.razor (view/edit)
-- [ ] AddSong.razor (create new)
-- [ ] Authorization policies
-- [ ] Search and filtering
+- ✅ Extended `SongDto` / `SongListItemDto` / `CreateSongDto` / `UpdateSongDto` with all fields (Singer, Mood, Tags, YoutubeLink, SpotifyLink, Notes, IsPublic, ViewCount)
+- ✅ `SongService` updated with full field mapping
+- ✅ `SongsController` — authorization added (`[AllowAnonymous]` on GET, `[Authorize]` on POST/PUT, `[Authorize(Roles="Admin")]` on DELETE)
+- ✅ `Songs.razor` — Song Library grid with search, category/key/mood filters, pagination (12/page)
+- ✅ `SongDetails.razor` — Full song view with lyrics, transpose control (+/- semitones), YouTube/Spotify links
+- ✅ `EditSong.razor` — Add/Edit form with full validation, all fields
+- ✅ `NavMenu.razor` — Reorganized with SONGS / ACCOUNT / DEV TOOLS sections
 
-#### 4.2 User Data Management
-**Node.js Endpoints**:
-```javascript
-GET    /api/userdata           // Get user's data (auth required)
-PUT    /api/userdata           // Update user's data (auth required)
-```
-
-**C# Implementation Plan**:
-- ✅ UserData entity exists
-- ✅ UserDataRepository exists
-- ✅ UserDataService exists
-- ✅ UserDataController exists
-- ⏳ Need Blazor UI for user preferences
-- ⏳ Need to link with current user
-
-**Deliverables**:
-- [ ] UserProfile.razor (view/edit preferences)
-- [ ] Settings.razor (app settings)
-- [ ] Link to authentication
-
-#### 4.3 Music Key Transposition
-**Node.js Feature**:
-```javascript
-// Transpose song keys
-// Calculate chord relationships
-// Support various key signatures
-```
-
-**C# Implementation Plan**:
-- ✅ MusicKey enum exists
-- ✅ TransposeService exists
-- ⏳ Need to add UI controls
-- ⏳ Need to test transposition logic
-
-**Deliverables**:
-- [ ] Key selector component
-- [ ] Transpose button on song view
-- [ ] Chord transposition display
+**Key URLs**:
+- `/songs` — Song Library
+- `/songs/{id}` — Song Details + Transpose
+- `/songs/add` — Add New Song
+- `/songs/{id}/edit` — Edit Song
 
 ---
 
-### 📋 Phase 5: Advanced Features (PLANNED)
+### 🔄 Phase 5: User Profile & Setlists (NEXT)
 **Status**: Planned
-**Timeline**: Week 5-6
+**Timeline**: Week 4
 
 **Objectives**:
-- Add song categories and moods
-- Implement favorites/bookmarks
-- Add song history/recently viewed
-- Create playlists or collections
+- UserProfile.razor — view/edit preferences
+- Setlist management (build a worship setlist from songs)
+- Favorites feature
+- MAUI mobile pages for Songs
 
-**Features to Add**:
-- [ ] Category filtering
-- [ ] Mood-based search
-- [ ] Singer/artist filtering
-- [ ] Tempo filtering
-- [ ] Favorites system
-- [ ] Recently viewed songs
-- [ ] Song collections/playlists
 
 ---
 
-### 🚀 Phase 6: MAUI Mobile App (PLANNED)
+### 📋 Phase 6: MAUI Mobile App (PLANNED)
 **Status**: Planned
 **Timeline**: Week 7-8
 
@@ -569,11 +503,55 @@ The migration from Node.js to C# .NET 10 is well underway with a solid foundatio
 - Hybrid authentication (supports both apps)
 - Diagnostic and debug tools
 - Shared database approach
+- Core features migration (Song Management)
 
 ⏳ **Next Steps**:
-- Port song management features
-- Add Blazor UI pages
-- Implement authorization
-- Create MAUI mobile app
+- User profile and preferences
+- Setlist and favorites features
+- MAUI mobile app development
+- UI/UX enhancements
+- Security hardening
+- Comprehensive testing
+- Deployment preparation
 
 🎯 **Goal**: Complete, production-ready C# application that can run alongside the Node.js app with zero data migration required.
+
+---
+
+## Phase 7: 3-Panel Shell UI (IN PROGRESS)
+
+### Decision: Teams/Notes-Style 3-Panel Layout
+**Date**: 2026
+
+**Problem**: Separate page navigation (Songs list → Song detail) loses context and buttons were non-interactive due to missing @rendermode InteractiveServer.
+
+**Solution**: Single-shell 3-panel layout at /songs route.
+
+### Panel Architecture
+| Panel | Width | Content |
+|-------|-------|---------|
+| Panel 1 | 220px | App nav: Home, All Songs, Favorites, New Setlist, Old Setlist, Add Song, Profile/Login |
+| Panel 2 | 320px | Song list with live search + category/key/mood filters |
+| Panel 3 | flex  | Song detail: title, meta, transpose control, full lyrics, notes |
+
+### Responsive Behaviour
+| Breakpoint | Behaviour |
+|------------|-----------|
+| Desktop >1100px | All 3 panels visible simultaneously |
+| Tablet 700-1100px | Panel 1 collapses to icon rail, Panel 2 + 3 visible |
+| Mobile <700px | Single panel at a time, back-button stack navigation |
+
+### Files Changed
+- NEW: SongShell.razor (Web) - full 3-panel shell at /songs
+- NEW: EmptyLayout.razor (Web) - full-window layout for shell
+- REMOVED: Songs.razor, SongDetails.razor, EditSong.razor (replaced by shell)
+- UPDATED: NavMenu.razor - /songs link
+- NEW: SongShell.razor (MAUI) - mobile-first 3-panel shell
+- FIX: Added @rendermode InteractiveServer to all interactive pages
+
+### Status
+- [x] Plan documented
+- [ ] EmptyLayout created
+- [ ] Web SongShell built
+- [ ] MAUI SongShell built
+- [ ] All buttons verified working

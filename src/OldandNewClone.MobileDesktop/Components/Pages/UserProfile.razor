@@ -1,0 +1,141 @@
+@page "/profile"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject UserStateService UserState
+
+<div class="mobile-page-content">
+    <div class="page-header">
+        <h1>👤 Profile</h1>
+    </div>
+
+    @if (!UserState.IsLoggedIn)
+    {
+        <div class="auth-prompt">
+            <p>🔒 Please <a href="/login">log in</a> to view your profile.</p>
+        </div>
+    }
+    else
+    {
+        <!-- Avatar + Name -->
+        <div class="profile-card">
+            <div class="avatar">@(UserState.DisplayName.Length > 0 ? UserState.DisplayName[0].ToString().ToUpper() : "?")</div>
+            <div class="profile-info">
+                <h2 class="profile-name">@UserState.DisplayName</h2>
+                <p class="profile-email">@UserState.Email</p>
+                @if (UserState.IsAdmin)
+                {
+                    <span class="admin-badge">⭐ Admin</span>
+                }
+            </div>
+        </div>
+
+        <!-- Stats -->
+        @if (statsLoaded)
+        {
+            <div class="stats-row">
+                <div class="stat-card">
+                    <span class="stat-num">@favCount</span>
+                    <span class="stat-label">❤️ Favorites</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-num">@newSetCount</span>
+                    <span class="stat-label">✨ New Setlist</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-num">@oldSetCount</span>
+                    <span class="stat-label">🕰️ Old Setlist</span>
+                </div>
+            </div>
+        }
+
+        <!-- Quick Links -->
+        <div class="section-title">My Music</div>
+        <div class="menu-list">
+            <div class="menu-item" @onclick='() => Navigation.NavigateTo("/songs")'>
+                <span>🎵 Song Library</span><span class="chevron">›</span>
+            </div>
+            <div class="menu-item" @onclick='() => Navigation.NavigateTo("/favorites")'>
+                <span>❤️ Favorites</span><span class="chevron">›</span>
+            </div>
+            <div class="menu-item" @onclick='() => Navigation.NavigateTo("/setlist")'>
+                <span>📋 Setlists</span><span class="chevron">›</span>
+            </div>
+        </div>
+
+        <!-- Logout -->
+        <button @onclick="Logout" class="btn-logout">🚪 Sign Out</button>
+    }
+</div>
+
+<style>
+    .mobile-page-content { padding: 16px; max-width: 500px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; }
+    .page-header { margin-bottom: 18px; }
+    .page-header h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; }
+
+    .profile-card { background: white; border-radius: 20px; padding: 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    .avatar { width: 64px; height: 64px; background: linear-gradient(135deg, #3498db, #2980b9); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 700; color: white; flex-shrink: 0; }
+    .profile-info { flex: 1; min-width: 0; }
+    .profile-name { margin: 0 0 4px; font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
+    .profile-email { margin: 0 0 6px; color: #7f8c8d; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .admin-badge { background: #e74c3c; color: white; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; }
+
+    .stats-row { display: flex; gap: 10px; margin-bottom: 20px; }
+    .stat-card { flex: 1; background: white; border-radius: 16px; padding: 16px 10px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 4px; }
+    .stat-num { font-size: 1.6rem; font-weight: 800; color: #2c3e50; }
+    .stat-label { font-size: 0.72rem; color: #7f8c8d; font-weight: 600; }
+
+    .section-title { font-size: 0.72rem; font-weight: 700; color: #95a5a6; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; padding: 0 4px; }
+    .menu-list { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .menu-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; cursor: pointer; border-bottom: 1px solid #f5f5f5; font-weight: 600; color: #2c3e50; transition: background 0.15s; }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item:hover, .menu-item:active { background: #f8f9fa; }
+    .chevron { color: #bdc3c7; font-size: 1.3rem; }
+
+    .btn-logout { width: 100%; background: #fdecea; color: #c0392b; border: 2px solid #f5c6cb; padding: 14px; border-radius: 14px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+    .btn-logout:hover { background: #f8d7da; }
+
+    .auth-prompt { text-align: center; padding: 60px 20px; color: #7f8c8d; }
+    .auth-prompt a { color: #3498db; }
+</style>
+
+@code {
+    private int favCount = 0;
+    private int newSetCount = 0;
+    private int oldSetCount = 0;
+    private bool statsLoaded = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserState.IsLoggedIn) await LoadStats();
+    }
+
+    private async Task LoadStats()
+    {
+        try
+        {
+            var ud = await Http.GetFromJsonAsync<UserData>($"api/userdata/{UserState.UserId}");
+            if (ud != null)
+            {
+                favCount = ud.Favorites.Count;
+                newSetCount = ud.NewSetlist.Count;
+                oldSetCount = ud.OldSetlist.Count;
+                statsLoaded = true;
+            }
+        }
+        catch { }
+    }
+
+    private void Logout()
+    {
+        Http.DefaultRequestHeaders.Authorization = null;
+        UserState.Logout();
+        Navigation.NavigateTo("/login");
+    }
+
+    private class UserData
+    {
+        public List<int> Favorites { get; set; } = new();
+        public List<int> NewSetlist { get; set; } = new();
+        public List<int> OldSetlist { get; set; } = new();
+    }
+}

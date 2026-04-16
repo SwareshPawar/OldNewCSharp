@@ -1,6 +1,8 @@
 @page "/auth/login"
 @rendermode InteractiveServer
 @inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject OldandNewClone.Application.Services.UserStateService UserState
 @inject ILogger<Login> Logger
 @using System.ComponentModel.DataAnnotations
 @using System.Net.Http.Json
@@ -78,8 +80,7 @@
 
         try
         {
-            var httpClient = new HttpClient { BaseAddress = new Uri(NavigationManager.BaseUri) };
-            var response = await httpClient.PostAsJsonAsync("/api/auth/login", new
+            var response = await Http.PostAsJsonAsync("/api/auth/login", new
             {
                 usernameOrEmail = loginModel.UsernameOrEmail,
                 password = loginModel.Password
@@ -89,11 +90,23 @@
             {
                 var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
 
-                if (result?.Success == true)
+                if (result?.Success == true && result.User != null)
                 {
-                    // Store tokens (in a real app, use proper state management)
-                    Logger.LogInformation("Login successful for user: {UsernameOrEmail}", loginModel.UsernameOrEmail);
-                    NavigationManager.NavigateTo("/");
+                    // Save user state and set Authorization header for all future API calls
+                    UserState.SetUser(
+                        result.User.Id,
+                        result.User.Username,
+                        result.User.Email,
+                        result.User.FirstName,
+                        result.User.LastName,
+                        result.User.IsAdmin,
+                        result.AccessToken!
+                    );
+                    Http.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", result.AccessToken);
+
+                    Logger.LogInformation("Login successful for user: {Username}", result.User.Username);
+                    NavigationManager.NavigateTo("/songs");
                 }
                 else
                 {
@@ -148,6 +161,17 @@
         public string? AccessToken { get; set; }
         public string? RefreshToken { get; set; }
         public string? ErrorMessage { get; set; }
+        public UserInfo? User { get; set; }
+    }
+
+    private class UserInfo
+    {
+        public string Id { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public bool IsAdmin { get; set; }
     }
 
     private class ErrorResponse

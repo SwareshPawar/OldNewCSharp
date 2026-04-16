@@ -1,0 +1,110 @@
+@page "/favorites"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject UserStateService UserState
+
+<div class="mobile-page-content">
+    <div class="page-header">
+        <h1>❤️ Favorites</h1>
+        <span class="count-badge">@favoriteSongs.Count</span>
+    </div>
+
+    @if (!UserState.IsLoggedIn)
+    {
+        <div class="auth-prompt">
+            <p>🔒 Please <a href="/login">log in</a> to view your favorites.</p>
+        </div>
+    }
+    else if (isLoading)
+    {
+        <div class="loading-state"><div class="spinner"></div><p>Loading...</p></div>
+    }
+    else if (favoriteSongs.Count == 0)
+    {
+        <div class="empty-state">
+            <p>💔 No favorites yet.</p>
+            <a href="/songs" class="btn-browse">Browse Songs</a>
+        </div>
+    }
+    else
+    {
+        <div class="song-list">
+            @foreach (var song in favoriteSongs)
+            {
+                <div class="song-item">
+                    <div class="song-item-main" @onclick="() => NavigateToSong(song.Id)">
+                        <span class="song-item-title">@song.Title</span>
+                        @if (!string.IsNullOrEmpty(song.Singer))
+                        {
+                            <span class="song-item-singer">🎤 @song.Singer</span>
+                        }
+                    </div>
+                    <div class="song-item-right">
+                        <span class="key-chip">@song.Key</span>
+                        <button class="btn-remove" @onclick="() => RemoveFavorite(song.Id)">💔</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .mobile-page-content { padding: 16px; max-width: 600px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; }
+    .page-header { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .page-header h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; }
+    .count-badge { background: #e74c3c; color: white; border-radius: 12px; padding: 2px 10px; font-size: 0.8rem; font-weight: 700; }
+    .song-list { display: flex; flex-direction: column; gap: 4px; }
+    .song-item { display: flex; justify-content: space-between; align-items: center; background: white; padding: 14px 16px; border-radius: 14px; border: 1px solid #f0f0f0; }
+    .song-item-main { display: flex; flex-direction: column; gap: 3px; flex: 1; cursor: pointer; min-width: 0; }
+    .song-item-title { font-weight: 700; color: #2c3e50; font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .song-item-singer { font-size: 0.8rem; color: #7f8c8d; }
+    .song-item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .key-chip { background: #eaf4fb; color: #1a5276; padding: 3px 9px; border-radius: 10px; font-size: 0.78rem; font-weight: 700; }
+    .btn-remove { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 4px; }
+    .auth-prompt, .empty-state, .error-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
+    .auth-prompt a, .empty-state a { color: #3498db; }
+    .btn-browse { display: inline-block; background: #3498db; color: white; padding: 10px 22px; border-radius: 10px; text-decoration: none; margin-top: 12px; font-weight: 600; }
+    .loading-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #e0e0e0; border-top-color: #3498db; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    private List<SongItem> favoriteSongs = new();
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserState.IsLoggedIn) await LoadFavorites();
+    }
+
+    private async Task LoadFavorites()
+    {
+        isLoading = true;
+        try
+        {
+            var ud = await Http.GetFromJsonAsync<UserData>($"api/userdata/{UserState.UserId}");
+            var all = await Http.GetFromJsonAsync<List<SongItem>>("api/songs");
+            favoriteSongs = all?.Where(s => ud?.Favorites.Contains(s.Id) ?? false).ToList() ?? new();
+        }
+        catch { }
+        finally { isLoading = false; }
+    }
+
+    private async Task RemoveFavorite(int songId)
+    {
+        await Http.PostAsync($"api/userdata/{UserState.UserId}/favorites/{songId}", null);
+        favoriteSongs.RemoveAll(s => s.Id == songId);
+    }
+
+    private void NavigateToSong(int id) => Navigation.NavigateTo($"/songs/{id}");
+
+    private record SongItem(int Id, string Title, string Category, string Key,
+        List<string> Genres, string? Singer, string? Mood);
+
+    private class UserData
+    {
+        public List<int> Favorites { get; set; } = new();
+    }
+}

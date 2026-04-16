@@ -4,6 +4,7 @@ using OldandNewClone.Application.Configuration;
 using OldandNewClone.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Components;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -52,8 +53,12 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Add HttpClient for external API calls (if needed)
-builder.Services.AddHttpClient();
+// Add HttpClient for Blazor Server components — uses the app's own base URI
+builder.Services.AddScoped(sp =>
+{
+    var navigationManager = sp.GetRequiredService<NavigationManager>();
+    return new HttpClient { BaseAddress = new Uri(navigationManager.BaseUri) };
+});
 
 // Add Application and Infrastructure layers
 builder.Services.AddApplication();
@@ -64,6 +69,9 @@ builder.Services.AddControllers();
 
 // Add MongoDB user checker for diagnostics
 builder.Services.AddScoped<OldandNewClone.Web.Services.MongoDbUserChecker>();
+
+// Add UserStateService — shared between Web and MAUI (lives in Application layer)
+builder.Services.AddScoped<OldandNewClone.Application.Services.UserStateService>();
 
 var app = builder.Build();
     // Migrate password fields from Node.js format to .NET format

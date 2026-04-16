@@ -9,7 +9,17 @@ public record SongDto(
     string Time,
     string Taal,
     List<string> Genres,
-    string Lyrics
+    string Lyrics,
+    string? Singer,
+    string? Mood,
+    List<string>? Tags,
+    string? YoutubeLink,
+    string? SpotifyLink,
+    string? Notes,
+    bool IsPublic,
+    int ViewCount,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
 );
 
 public record SongListItemDto(
@@ -17,7 +27,9 @@ public record SongListItemDto(
     string Title,
     string Category,
     string Key,
-    List<string> Genres
+    List<string> Genres,
+    string? Singer,
+    string? Mood
 );
 
 public record CreateSongDto(
@@ -28,7 +40,14 @@ public record CreateSongDto(
     string Time,
     string Taal,
     List<string> Genres,
-    string Lyrics
+    string Lyrics,
+    string? Singer = null,
+    string? Mood = null,
+    List<string>? Tags = null,
+    string? YoutubeLink = null,
+    string? SpotifyLink = null,
+    string? Notes = null,
+    bool IsPublic = true
 );
 
 public record UpdateSongDto(
@@ -40,5 +59,12 @@ public record UpdateSongDto(
     string Time,
     string Taal,
     List<string> Genres,
-    string Lyrics
+    string Lyrics,
+    string? Singer = null,
+    string? Mood = null,
+    List<string>? Tags = null,
+    string? YoutubeLink = null,
+    string? SpotifyLink = null,
+    string? Notes = null,
+    bool IsPublic = true
 );

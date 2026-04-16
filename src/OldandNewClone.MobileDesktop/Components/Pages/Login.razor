@@ -1,0 +1,137 @@
+@page "/login"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject UserStateService UserState
+
+<div class="mobile-page">
+    <div class="login-card">
+        <div class="app-logo">🎵</div>
+        <h1 class="app-title">OldandNew</h1>
+        <p class="app-subtitle">Church Worship Songs</p>
+
+        @if (errorMessage != null)
+        {
+            <div class="error-banner">⚠️ @errorMessage</div>
+        }
+
+        <div class="form-group">
+            <label>Username or Email</label>
+            <input @bind="usernameOrEmail" type="text" placeholder="username or email" class="mobile-input" />
+        </div>
+
+        <div class="form-group">
+            <label>Password</label>
+            <input @bind="password" type="password" placeholder="••••••••" class="mobile-input" />
+        </div>
+
+        <button @onclick="HandleLogin" disabled="@isLoading" class="btn-login">
+            @(isLoading ? "Signing in..." : "Sign In")
+        </button>
+
+        <div class="register-link">
+            <span>Don't have an account? </span>
+            <a href="/register">Register</a>
+        </div>
+
+        <div class="skip-link">
+            <a href="/songs">Browse Songs as Guest →</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .mobile-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); padding: 20px; }
+    .login-card { background: white; border-radius: 24px; padding: 36px 28px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .app-logo { font-size: 3rem; text-align: center; margin-bottom: 8px; }
+    .app-title { text-align: center; color: #2c3e50; font-size: 1.8rem; margin: 0 0 4px; }
+    .app-subtitle { text-align: center; color: #95a5a6; margin: 0 0 28px; font-size: 0.9rem; }
+    .error-banner { background: #fdecea; color: #c0392b; padding: 12px; border-radius: 10px; margin-bottom: 16px; font-size: 0.9rem; text-align: center; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 6px; }
+    .mobile-input { width: 100%; padding: 14px 16px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 1rem; box-sizing: border-box; transition: border-color 0.2s; }
+    .mobile-input:focus { outline: none; border-color: #3498db; }
+    .btn-login { width: 100%; background: #3498db; color: white; border: none; padding: 16px; border-radius: 12px; font-size: 1.05rem; font-weight: 700; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+    .btn-login:hover:not(:disabled) { background: #2980b9; }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+    .register-link { text-align: center; margin-top: 16px; font-size: 0.9rem; color: #7f8c8d; }
+    .register-link a { color: #3498db; font-weight: 600; text-decoration: none; }
+    .skip-link { text-align: center; margin-top: 12px; }
+    .skip-link a { color: #95a5a6; font-size: 0.85rem; text-decoration: none; }
+    .skip-link a:hover { color: #3498db; }
+</style>
+
+@code {
+    private string usernameOrEmail = "";
+    private string password = "";
+    private bool isLoading = false;
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(usernameOrEmail) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Please enter your username/email and password.";
+            return;
+        }
+
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/auth/login", new
+            {
+                usernameOrEmail,
+                password
+            });
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
+                if (result?.Success == true && result.User != null)
+                {
+                    UserState.SetUser(
+                        result.User.Id, result.User.Username, result.User.Email,
+                        result.User.FirstName, result.User.LastName,
+                        result.User.IsAdmin, result.AccessToken!);
+
+                    Http.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", result.AccessToken);
+
+                    Navigation.NavigateTo("/songs");
+                }
+                else
+                {
+                    errorMessage = result?.ErrorMessage ?? "Login failed.";
+                }
+            }
+            else
+            {
+                errorMessage = "Invalid credentials. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Connection error: {ex.Message}";
+        }
+        finally { isLoading = false; }
+    }
+
+    private class AuthResponse
+    {
+        public bool Success { get; set; }
+        public string? AccessToken { get; set; }
+        public string? ErrorMessage { get; set; }
+        public UserInfo? User { get; set; }
+    }
+
+    private class UserInfo
+    {
+        public string Id { get; set; } = "";
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Username { get; set; } = "";
+        public string Email { get; set; } = "";
+        public bool IsAdmin { get; set; }
+    }
+}

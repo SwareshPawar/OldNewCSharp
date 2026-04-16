@@ -1,0 +1,969 @@
+@page "/songs"
+@page "/songs/{SongId:int}"
+@layout EmptyLayout
+@rendermode InteractiveServer
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject OldandNewClone.Application.Services.UserStateService UserState
+
+<PageTitle>🎵 OldandNew — Songs</PageTitle>
+
+<div class="shell">
+
+    <!-- ═══════════════════════════════════════════════════
+         PANEL 1 — Navigation Rail
+    ═══════════════════════════════════════════════════ -->
+    <div class="panel-1 @(mobilePanelIndex == 0 ? "mobile-show" : "mobile-hide")">
+        <div class="p1-brand">
+            <span class="brand-icon">🎵</span>
+            <span class="brand-name">OldandNew</span>
+        </div>
+
+        <nav class="p1-nav">
+            <div class="nav-section-label">LIBRARY</div>
+
+            <button class="p1-nav-item @(activeSection == "all" ? "nav-active" : "")"
+                    @onclick='() => SelectSection("all")'>
+                <span class="nav-icon">🎵</span>
+                <span class="nav-label">All Songs</span>
+                <span class="nav-count">@allSongs.Count</span>
+            </button>
+
+            @if (UserState.IsLoggedIn)
+            {
+                <button class="p1-nav-item @(activeSection == "favorites" ? "nav-active" : "")"
+                        @onclick='() => SelectSection("favorites")'>
+                    <span class="nav-icon">❤️</span>
+                    <span class="nav-label">Favorites</span>
+                    <span class="nav-count">@userData.Favorites.Count</span>
+                </button>
+            }
+
+            <div class="nav-section-label">SETLISTS</div>
+
+            <button class="p1-nav-item @(activeSection == "new" ? "nav-active" : "")"
+                    @onclick='() => SelectSection("new")'>
+                <span class="nav-icon">✨</span>
+                <span class="nav-label">New Setlist</span>
+                <span class="nav-count">@userData.NewSetlist.Count</span>
+            </button>
+
+            <button class="p1-nav-item @(activeSection == "old" ? "nav-active" : "")"
+                    @onclick='() => SelectSection("old")'>
+                <span class="nav-icon">🕰️</span>
+                <span class="nav-label">Old Setlist</span>
+                <span class="nav-count">@userData.OldSetlist.Count</span>
+            </button>
+        </nav>
+
+        <div class="p1-footer">
+            @if (UserState.IsLoggedIn)
+            {
+                <button class="p1-nav-item" @onclick='() => SelectSection("add")'>
+                    <span class="nav-icon">➕</span>
+                    <span class="nav-label">Add Song</span>
+                </button>
+                <div class="p1-user" @onclick='() => Navigation.NavigateTo("/")'>
+                    <div class="p1-avatar">@UserState.DisplayName[0].ToString().ToUpper()</div>
+                    <div class="p1-user-info">
+                        <span class="p1-username">@UserState.DisplayName</span>
+                        @if (UserState.IsAdmin) { <span class="admin-dot">Admin</span> }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <button class="p1-nav-item" @onclick='() => Navigation.NavigateTo("/auth/login")'>
+                    <span class="nav-icon">🔑</span>
+                    <span class="nav-label">Sign In</span>
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         PANEL 2 — Song List
+    ═══════════════════════════════════════════════════ -->
+    <div class="panel-2 @(mobilePanelIndex == 1 ? "mobile-show" : "mobile-hide")">
+        <!-- P2 Header -->
+        <div class="p2-header">
+            <div class="p2-title-row">
+                <button class="p2-back-btn" @onclick="MobileGoToPanel1" title="Back">‹</button>
+                <h2 class="p2-title">@SectionTitle</h2>
+            </div>
+            <div class="p2-search-row">
+                <input type="search" placeholder="Search..." class="p2-search"
+                       @bind="searchText" @bind:event="oninput" @onkeyup="ApplyFilters" />
+            </div>
+            <div class="p2-filter-row">
+                <select class="p2-filter-select" @onchange="OnCategoryChanged">
+                    <option value="">All</option>
+                    <option value="Old">🕰️ Old</option>
+                    <option value="New">✨ New</option>
+                </select>
+                <select class="p2-filter-select" @onchange="OnKeyChanged">
+                    <option value="">Key</option>
+                    @foreach (var k in MusicKeys)
+                    {
+                        <option value="@k">@k</option>
+                    }
+                </select>
+                @if (HasFilters)
+                {
+                    <button class="p2-clear-btn" @onclick="ClearFilters">✕</button>
+                }
+            </div>
+        </div>
+
+        <!-- P2 Body -->
+        <div class="p2-body">
+            @if (activeSection == "add")
+            {
+                <!-- Inline Add Song Form -->
+                <div class="add-song-form">
+                    @if (saveError != null)
+                    {
+                        <div class="form-error">⚠️ @saveError</div>
+                    }
+                    @if (saveSuccess)
+                    {
+                        <div class="form-success">✅ Song saved!</div>
+                    }
+                    <div class="form-group"><label>Title *</label><input @bind="newSong.Title" class="form-input" placeholder="Song title" /></div>
+                    <div class="form-row-2">
+                        <div class="form-group"><label>Category *</label>
+                            <select @bind="newSong.Category" class="form-select">
+                                <option value="">--</option><option value="Old">Old</option><option value="New">New</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Key</label>
+                            <select @bind="newSong.Key" class="form-select">
+                                <option value="">--</option>
+                                @foreach (var k in MusicKeys) { <option value="@k">@k</option> }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group"><label>Singer</label><input @bind="newSong.Singer" class="form-input" placeholder="Singer name" /></div>
+                        <div class="form-group"><label>Tempo (BPM)</label><input @bind="newSong.Tempo" class="form-input" placeholder="120" /></div>
+                    </div>
+                    <div class="form-group"><label>Lyrics</label><textarea @bind="newSong.Lyrics" class="form-textarea" rows="8" placeholder="Song lyrics..."></textarea></div>
+                    <div class="form-group"><label>Notes</label><input @bind="newSong.Notes" class="form-input" placeholder="Any notes..." /></div>
+                    <button @onclick="SaveNewSong" disabled="@isSaving" class="btn-save-song">
+                        @(isSaving ? "Saving..." : "💾 Save Song")
+                    </button>
+                </div>
+            }
+            else if (isLoading)
+            {
+                <div class="p2-loading"><div class="spinner"></div></div>
+            }
+            else if (displayedSongs.Count == 0)
+            {
+                <div class="p2-empty">
+                    <p>No songs found.</p>
+                    @if (HasFilters || !string.IsNullOrEmpty(searchText))
+                    {
+                        <button @onclick="ClearFilters" class="p2-clear-all">Clear filters</button>
+                    }
+                </div>
+            }
+            else
+            {
+                @foreach (var song in displayedSongs)
+                {
+                    <div class="song-row @(selectedSongId == song.Id ? "song-row-active" : "")"
+                         @onclick="() => SelectSong(song.Id)">
+                        <div class="song-row-main">
+                            <span class="song-row-title">@song.Title</span>
+                            @if (!string.IsNullOrEmpty(song.Singer))
+                            {
+                                <span class="song-row-singer">🎤 @song.Singer</span>
+                            }
+                        </div>
+                        <div class="song-row-right">
+                            @if (!string.IsNullOrEmpty(song.Key))
+                            {
+                                <span class="key-pill">@song.Key</span>
+                            }
+                            <span class="cat-dot @(song.Category == "Old" ? "dot-old" : "dot-new")"></span>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         PANEL 3 — Song Detail / Lyrics
+    ═══════════════════════════════════════════════════ -->
+    <div class="panel-3 @(mobilePanelIndex == 2 ? "mobile-show" : "mobile-hide")">
+        @if (selectedSong == null && activeSection != "add")
+        {
+            <div class="p3-empty">
+                <div class="p3-empty-icon">🎵</div>
+                <p>Select a song to view its lyrics</p>
+            </div>
+        }
+        else if (isDetailLoading)
+        {
+            <div class="p3-loading"><div class="spinner"></div></div>
+        }
+        else if (selectedSong != null)
+        {
+            <div class="p3-content">
+                <!-- P3 Top Bar -->
+                <div class="p3-topbar">
+                    <button class="p3-back-btn" @onclick="MobileGoToPanel2">‹ List</button>
+                    <div class="p3-actions">
+                        @if (UserState.IsLoggedIn)
+                        {
+                            <button class="action-btn @(isFavorite ? "action-fav-on" : "")"
+                                    @onclick="ToggleFavorite" title="Favorite">
+                                @(isFavorite ? "❤️" : "🤍")
+                            </button>
+                            <button class="action-btn @(inNewSetlist ? "action-set-on" : "")"
+                                    @onclick="ToggleNewSetlist" title="New Setlist">
+                                @(inNewSetlist ? "✅" : "➕") New
+                            </button>
+                            <button class="action-btn @(inOldSetlist ? "action-set-on" : "")"
+                                    @onclick="ToggleOldSetlist" title="Old Setlist">
+                                @(inOldSetlist ? "✅" : "➕") Old
+                            </button>
+                        }
+                        <button class="action-btn action-edit" @onclick="ToggleEditMode">
+                            @(isEditing ? "✕ Cancel" : "✏️ Edit")
+                        </button>
+                    </div>
+                </div>
+
+                @if (!isEditing)
+                {
+                    <!-- ── VIEW MODE ── -->
+                    <div class="p3-meta">
+                        <div class="p3-badges">
+                            <span class="cat-badge @(selectedSong.Category == "Old" ? "badge-old" : "badge-new")">
+                                @(selectedSong.Category == "Old" ? "🕰️ Old" : "✨ New")
+                            </span>
+                            @if (!string.IsNullOrEmpty(selectedSong.Mood))
+                            {
+                                <span class="mood-badge">@selectedSong.Mood</span>
+                            }
+                        </div>
+                        <h1 class="p3-title">@selectedSong.Title</h1>
+                        @if (!string.IsNullOrEmpty(selectedSong.Singer))
+                        {
+                            <p class="p3-singer">🎤 @selectedSong.Singer</p>
+                        }
+                        <div class="p3-info-chips">
+                            <span class="info-chip">🎼 <strong>@TransposedKey</strong></span>
+                            @if (!string.IsNullOrEmpty(selectedSong.Tempo)) { <span class="info-chip">⏱ @selectedSong.Tempo BPM</span> }
+                            @if (!string.IsNullOrEmpty(selectedSong.Time)) { <span class="info-chip">@selectedSong.Time</span> }
+                            @if (!string.IsNullOrEmpty(selectedSong.Taal)) { <span class="info-chip">🥁 @selectedSong.Taal</span> }
+                        </div>
+                        @if (selectedSong.Genres.Any())
+                        {
+                            <div class="genre-chips">
+                                @foreach (var g in selectedSong.Genres)
+                                {
+                                    <span class="genre-chip">@g</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Transpose control -->
+                    <div class="transpose-bar">
+                        <span class="transpose-label">🎹 Transpose</span>
+                        <button @onclick="TransposeDown" class="transpose-btn">−</button>
+                        <span class="transpose-display">
+                            @if (transposeSteps == 0) { <span>Original</span> }
+                            else { <span>@(transposeSteps > 0 ? $"+{transposeSteps}" : $"{transposeSteps}") semitones</span> }
+                        </span>
+                        <button @onclick="TransposeUp" class="transpose-btn">+</button>
+                        @if (transposeSteps != 0)
+                        {
+                            <button @onclick="ResetTranspose" class="btn-reset-t">↺ Reset</button>
+                        }
+                    </div>
+
+                    <!-- External links -->
+                    @if (!string.IsNullOrEmpty(selectedSong.YoutubeLink) || !string.IsNullOrEmpty(selectedSong.SpotifyLink))
+                    {
+                        <div class="ext-links">
+                            @if (!string.IsNullOrEmpty(selectedSong.YoutubeLink))
+                            {
+                                <a href="@selectedSong.YoutubeLink" target="_blank" class="link-yt">▶ YouTube</a>
+                            }
+                            @if (!string.IsNullOrEmpty(selectedSong.SpotifyLink))
+                            {
+                                <a href="@selectedSong.SpotifyLink" target="_blank" class="link-sp">🎧 Spotify</a>
+                            }
+                        </div>
+                    }
+
+                    <!-- Lyrics -->
+                    <div class="lyrics-section">
+                        <h3 class="section-heading">📄 Lyrics</h3>
+                        @if (string.IsNullOrWhiteSpace(selectedSong.Lyrics))
+                        {
+                            <p class="no-content">No lyrics available.</p>
+                        }
+                        else
+                        {
+                            <pre class="lyrics-body">@selectedSong.Lyrics</pre>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(selectedSong.Notes))
+                    {
+                        <div class="notes-section">
+                            <h3 class="section-heading">📝 Notes</h3>
+                            <p class="notes-body">@selectedSong.Notes</p>
+                        </div>
+                    }
+
+                    @if (selectedSong.Tags != null && selectedSong.Tags.Any())
+                    {
+                        <div class="tags-row">
+                            <span class="tags-label">🏷️</span>
+                            @foreach (var tag in selectedSong.Tags) { <span class="tag-chip">@tag</span> }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <!-- ── EDIT MODE ── -->
+                    <div class="edit-form">
+                        <h2 class="edit-heading">✏️ Edit Song</h2>
+                        @if (saveError != null) { <div class="form-error">⚠️ @saveError</div> }
+                        @if (saveSuccess) { <div class="form-success">✅ Saved!</div> }
+
+                        <div class="form-group"><label>Title *</label><input @bind="editSong.Title" class="form-input" /></div>
+                        <div class="form-row-2">
+                            <div class="form-group"><label>Category</label>
+                                <select @bind="editSong.Category" class="form-select">
+                                    <option value="Old">Old</option><option value="New">New</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Key</label>
+                                <select @bind="editSong.Key" class="form-select">
+                                    <option value="">--</option>
+                                    @foreach (var k in MusicKeys) { <option value="@k">@k</option> }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group"><label>Singer</label><input @bind="editSong.Singer" class="form-input" /></div>
+                            <div class="form-group"><label>Mood</label>
+                                <select @bind="editSong.Mood" class="form-select">
+                                    <option value="">--</option>
+                                    @foreach (var m in Moods) { <option value="@m">@m</option> }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group"><label>Tempo (BPM)</label><input @bind="editSong.Tempo" class="form-input" /></div>
+                            <div class="form-group"><label>Time</label>
+                                <select @bind="editSong.Time" class="form-select">
+                                    <option value="">--</option>
+                                    <option>4/4</option><option>3/4</option><option>6/8</option><option>2/4</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group"><label>Taal</label><input @bind="editSong.Taal" class="form-input" /></div>
+                        <div class="form-group"><label>Genres (comma separated)</label><input @bind="editGenresText" class="form-input" /></div>
+                        <div class="form-group"><label>Lyrics</label><textarea @bind="editSong.Lyrics" class="form-textarea" rows="10"></textarea></div>
+                        <div class="form-group"><label>Notes</label><input @bind="editSong.Notes" class="form-input" /></div>
+                        <div class="form-row-2">
+                            <div class="form-group"><label>YouTube Link</label><input @bind="editSong.YoutubeLink" class="form-input" type="url" /></div>
+                            <div class="form-group"><label>Spotify Link</label><input @bind="editSong.SpotifyLink" class="form-input" type="url" /></div>
+                        </div>
+                        <div class="edit-actions">
+                            @if (UserState.IsAdmin)
+                            {
+                                <button @onclick="DeleteSong" class="btn-delete" disabled="@isSaving">🗑️ Delete</button>
+                            }
+                            <button @onclick="ToggleEditMode" class="btn-cancel-edit">Cancel</button>
+                            <button @onclick="SaveEditedSong" class="btn-save-song" disabled="@isSaving">
+                                @(isSaving ? "Saving..." : "💾 Save")
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- ─────────────── STYLES ─────────────── -->
+<style>
+    /* ── Layout ── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+
+    .shell {
+        display: grid;
+        grid-template-columns: 220px 320px 1fr;
+        height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #f5f6fa;
+        overflow: hidden;
+    }
+
+    /* ── Panel 1 ── */
+    .panel-1 {
+        background: #1e293b;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-right: 1px solid #334155;
+    }
+    .p1-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px 16px 14px;
+        border-bottom: 1px solid #334155;
+    }
+    .brand-icon { font-size: 1.4rem; }
+    .brand-name { font-size: 1.1rem; font-weight: 700; color: #f1f5f9; }
+    .p1-nav { flex: 1; overflow-y: auto; padding: 8px 8px; }
+    .nav-section-label {
+        font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em;
+        color: #64748b; padding: 14px 10px 4px; text-transform: uppercase;
+    }
+    .p1-nav-item {
+        display: flex; align-items: center; gap: 10px;
+        width: 100%; background: none; border: none;
+        color: #94a3b8; padding: 10px 10px; border-radius: 8px;
+        cursor: pointer; text-align: left; font-size: 0.9rem;
+        font-weight: 500; transition: all 0.15s; margin-bottom: 2px;
+    }
+    .p1-nav-item:hover { background: #334155; color: #f1f5f9; }
+    .nav-active { background: #3b82f6 !important; color: white !important; }
+    .nav-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+    .nav-label { flex: 1; }
+    .nav-count {
+        background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
+        font-size: 0.72rem; padding: 1px 7px; border-radius: 10px; min-width: 20px; text-align: center;
+    }
+    .nav-active .nav-count { background: rgba(255,255,255,0.25); }
+    .p1-footer { padding: 8px; border-top: 1px solid #334155; }
+    .p1-user {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px; border-radius: 8px; cursor: pointer; transition: background 0.15s;
+        margin-top: 4px;
+    }
+    .p1-user:hover { background: #334155; }
+    .p1-avatar {
+        width: 32px; height: 32px; background: #3b82f6;
+        border-radius: 50%; display: flex; align-items: center;
+        justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+    }
+    .p1-user-info { display: flex; flex-direction: column; min-width: 0; }
+    .p1-username { font-size: 0.85rem; font-weight: 600; color: #f1f5f9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .admin-dot { font-size: 0.65rem; color: #f87171; font-weight: 700; }
+
+    /* ── Panel 2 ── */
+    .panel-2 {
+        background: white;
+        display: flex; flex-direction: column;
+        border-right: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+    .p2-header { padding: 14px 14px 8px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0; }
+    .p2-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .p2-back-btn {
+        display: none; background: none; border: none;
+        font-size: 1.4rem; cursor: pointer; color: #3b82f6;
+        padding: 0 6px; line-height: 1;
+    }
+    .p2-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b; }
+    .p2-search {
+        width: 100%; padding: 9px 12px; border: 2px solid #e2e8f0;
+        border-radius: 10px; font-size: 0.9rem; margin-bottom: 8px;
+    }
+    .p2-search:focus { outline: none; border-color: #3b82f6; }
+    .p2-filter-row { display: flex; gap: 6px; align-items: center; }
+    .p2-filter-select {
+        flex: 1; padding: 6px 8px; border: 2px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.82rem; background: white; cursor: pointer;
+    }
+    .p2-filter-select:focus { outline: none; border-color: #3b82f6; }
+    .p2-clear-btn {
+        background: #fee2e2; color: #ef4444; border: none;
+        width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 700;
+    }
+    .p2-body { flex: 1; overflow-y: auto; }
+    .song-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 14px; cursor: pointer; transition: background 0.1s;
+        border-bottom: 1px solid #f8fafc;
+    }
+    .song-row:hover { background: #f0f9ff; }
+    .song-row-active { background: #eff6ff !important; border-left: 3px solid #3b82f6; }
+    .song-row-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .song-row-title { font-weight: 600; color: #1e293b; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .song-row-singer { font-size: 0.77rem; color: #94a3b8; }
+    .song-row-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .key-pill { background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; }
+    .cat-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot-old { background: #f59e0b; }
+    .dot-new { background: #22c55e; }
+    .p2-loading, .p2-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 50px 20px; color: #94a3b8; gap: 10px; }
+    .p2-clear-all { background: none; border: 1px solid #e2e8f0; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: #64748b; }
+
+    /* ── Panel 3 ── */
+    .panel-3 { background: #fafbfc; overflow-y: auto; }
+    .p3-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #94a3b8; gap: 12px; }
+    .p3-empty-icon { font-size: 3rem; opacity: 0.4; }
+    .p3-loading { display: flex; justify-content: center; align-items: center; height: 100%; }
+    .p3-content { padding: 20px 28px; max-width: 800px; }
+    .p3-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .p3-back-btn { display: none; background: none; border: none; color: #3b82f6; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .p3-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .action-btn {
+        background: white; border: 2px solid #e2e8f0; padding: 7px 14px;
+        border-radius: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+        color: #475569; transition: all 0.15s; white-space: nowrap;
+    }
+    .action-btn:hover { border-color: #3b82f6; color: #3b82f6; }
+    .action-fav-on { background: #fef2f2; border-color: #ef4444; color: #ef4444 !important; }
+    .action-set-on { background: #f0fdf4; border-color: #22c55e; color: #16a34a !important; }
+    .action-edit { background: #fffbeb; border-color: #f59e0b; color: #d97706; }
+    .p3-meta { margin-bottom: 16px; }
+    .p3-badges { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    .cat-badge { padding: 4px 12px; border-radius: 16px; font-size: 0.78rem; font-weight: 700; }
+    .badge-old { background: #fef3c7; color: #92400e; }
+    .badge-new { background: #d1fae5; color: #065f46; }
+    .mood-badge { background: #f3e8ff; color: #6d28d9; padding: 4px 12px; border-radius: 16px; font-size: 0.78rem; font-weight: 700; }
+    .p3-title { font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 0 0 6px; line-height: 1.2; }
+    .p3-singer { color: #64748b; margin: 0 0 12px; font-size: 0.9rem; }
+    .p3-info-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .info-chip { background: #f0f9ff; color: #0369a1; padding: 5px 12px; border-radius: 10px; font-size: 0.82rem; }
+    .genre-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .genre-chip { background: #f1f5f9; color: #475569; padding: 3px 10px; border-radius: 10px; font-size: 0.78rem; }
+
+    .transpose-bar {
+        display: flex; align-items: center; gap: 10px; background: white;
+        border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 12px;
+        margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .transpose-label { font-weight: 600; font-size: 0.85rem; color: #475569; }
+    .transpose-btn {
+        background: #3b82f6; color: white; border: none;
+        width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+        font-size: 1.1rem; font-weight: 700; transition: background 0.15s;
+    }
+    .transpose-btn:hover { background: #2563eb; }
+    .transpose-display { font-weight: 700; color: #0f172a; min-width: 90px; text-align: center; font-size: 0.9rem; }
+    .btn-reset-t { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.82rem; }
+
+    .ext-links { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .link-yt { background: #ef4444; color: white; padding: 7px 14px; border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; }
+    .link-sp { background: #22c55e; color: white; padding: 7px 14px; border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; }
+
+    .section-heading { font-size: 0.9rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 10px; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; }
+    .lyrics-body { white-space: pre-wrap; font-family: 'Georgia', serif; font-size: 1rem; line-height: 2; color: #1e293b; margin: 0; }
+    .notes-body { color: #475569; line-height: 1.6; }
+    .no-content { color: #94a3b8; font-style: italic; }
+    .tags-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 16px 0; }
+    .tags-label { font-size: 0.85rem; color: #94a3b8; }
+    .tag-chip { background: #f1f5f9; color: #475569; padding: 3px 10px; border-radius: 10px; font-size: 0.78rem; }
+
+    /* ── Shared ── */
+    .spinner { width: 36px; height: 36px; border: 4px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Edit / Add Forms ── */
+    .edit-form, .add-song-form { padding: 20px 28px; max-width: 700px; }
+    .edit-heading { color: #1e293b; margin: 0 0 16px; font-size: 1.2rem; }
+    .form-group { margin-bottom: 14px; display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 0.82rem; font-weight: 600; color: #475569; }
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 0; }
+    .form-input, .form-select, .form-textarea {
+        padding: 9px 12px; border: 2px solid #e2e8f0; border-radius: 8px;
+        font-size: 0.9rem; font-family: inherit; transition: border-color 0.15s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #3b82f6; }
+    .form-textarea { resize: vertical; }
+    .form-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.88rem; }
+    .form-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.88rem; }
+    .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+    .btn-save-song { background: #22c55e; color: white; border: none; padding: 10px 24px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 700; transition: background 0.15s; }
+    .btn-save-song:hover:not(:disabled) { background: #16a34a; }
+    .btn-save-song:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-cancel-edit { background: white; color: #64748b; border: 2px solid #e2e8f0; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .btn-delete { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 600; margin-right: auto; }
+
+    /* ── Tablet (hide Panel 1, show icon rail) ── */
+    @@media (max-width: 1100px) {
+        .shell { grid-template-columns: 56px 300px 1fr; }
+        .brand-name, .nav-label, .nav-count, .p1-user-info, .p1-username, .admin-dot, .nav-section-label { display: none; }
+        .p1-brand { justify-content: center; padding: 16px 0; }
+        .p1-nav-item { justify-content: center; padding: 12px; }
+        .p1-user { justify-content: center; padding: 12px; }
+    }
+
+    /* ── Mobile (single panel stack) ── */
+    @@media (max-width: 700px) {
+        .shell { grid-template-columns: 1fr; grid-template-rows: 1fr; height: 100dvh; }
+        .panel-1, .panel-2, .panel-3 { grid-column: 1; grid-row: 1; }
+        .mobile-show { display: flex; flex-direction: column; }
+        .mobile-hide { display: none !important; }
+        .p2-back-btn { display: block; }
+        .p3-back-btn { display: block; }
+    }
+    @@media (min-width: 701px) {
+        .mobile-show, .mobile-hide { display: contents; }
+        .panel-1, .panel-2, .panel-3 { display: flex; flex-direction: column; }
+    }
+</style>
+
+@code {
+    [Parameter] public int SongId { get; set; }
+
+    // ── Data ──
+    private List<SongItem> allSongs = new();
+    private List<SongItem> displayedSongs = new();
+    private UserDataState userData = new();
+    private SongDetail? selectedSong;
+
+    // ── UI State ──
+    private string activeSection = "all";
+    private int? selectedSongId;
+    private string searchText = "";
+    private string filterCategory = "";
+    private string filterKey = "";
+    private bool isLoading = true;
+    private bool isDetailLoading = false;
+    private int mobilePanelIndex = 0; // 0=nav, 1=list, 2=detail
+
+    // ── Transpose ──
+    private int transposeSteps = 0;
+
+    // ── Favorite / Setlist toggles ──
+    private bool isFavorite = false;
+    private bool inNewSetlist = false;
+    private bool inOldSetlist = false;
+
+    // ── Edit mode ──
+    private bool isEditing = false;
+    private SongFormModel editSong = new();
+    private string editGenresText = "";
+    private bool isSaving = false;
+    private string? saveError;
+    private bool saveSuccess = false;
+
+    // ── Add mode ──
+    private SongFormModel newSong = new();
+
+    private static readonly string[] MusicKeys =
+        { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B",
+          "Cm","C#m","Dm","D#m","Em","Fm","F#m","Gm","G#m","Am","A#m","Bm" };
+
+    private static readonly string[] Moods =
+        { "Worship","Praise","Reflective","Joyful","Peaceful","Energetic","Devotional" };
+
+    private bool HasFilters => !string.IsNullOrEmpty(filterCategory) || !string.IsNullOrEmpty(filterKey);
+
+    private string SectionTitle => activeSection switch
+    {
+        "favorites"  => "❤️ Favorites",
+        "new"        => "✨ New Setlist",
+        "old"        => "🕰️ Old Setlist",
+        "add"        => "➕ Add Song",
+        _            => "🎵 All Songs"
+    };
+
+    // ── Transpose ──
+    private static readonly string[] KeyOrder  = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+    private static readonly string[] MinorOrder = { "Cm","C#m","Dm","D#m","Em","Fm","F#m","Gm","G#m","Am","A#m","Bm" };
+
+    private string TransposedKey
+    {
+        get
+        {
+            if (selectedSong == null || transposeSteps == 0) return selectedSong?.Key ?? "";
+            var mi = Array.IndexOf(MinorOrder, selectedSong.Key);
+            if (mi >= 0) return MinorOrder[((mi + transposeSteps) % 12 + 12) % 12];
+            var ki = Array.IndexOf(KeyOrder, selectedSong.Key);
+            if (ki >= 0) return KeyOrder[((ki + transposeSteps) % 12 + 12) % 12];
+            return selectedSong.Key;
+        }
+    }
+
+    // ── Lifecycle ──
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllSongs();
+        if (UserState.IsLoggedIn) await LoadUserData();
+
+        if (SongId > 0)
+        {
+            await SelectSong(SongId);
+            mobilePanelIndex = 2;
+        }
+        else
+        {
+            mobilePanelIndex = 0;
+        }
+    }
+
+    private async Task LoadAllSongs()
+    {
+        isLoading = true;
+        try
+        {
+            allSongs = await Http.GetFromJsonAsync<List<SongItem>>("api/songs") ?? new();
+            ApplyFilters();
+        }
+        catch { }
+        finally { isLoading = false; }
+    }
+
+    private async Task LoadUserData()
+    {
+        try
+        {
+            var ud = await Http.GetFromJsonAsync<UserDataState>($"api/userdata/{UserState.UserId}");
+            if (ud != null) userData = ud;
+        }
+        catch { }
+    }
+
+    // ── Section selection ──
+    private async Task SelectSection(string section)
+    {
+        activeSection = section;
+        selectedSong = null;
+        selectedSongId = null;
+        transposeSteps = 0;
+        isEditing = false;
+        saveError = null;
+        saveSuccess = false;
+        newSong = new();
+        ApplyFilters();
+        mobilePanelIndex = 1;
+
+        if ((section == "favorites" || section == "new" || section == "old") && UserState.IsLoggedIn)
+            await LoadUserData();
+    }
+
+    // ── Song selection ──
+    private async Task SelectSong(int id)
+    {
+        if (selectedSongId == id) return;
+        selectedSongId = id;
+        transposeSteps = 0;
+        isEditing = false;
+        saveError = null;
+        saveSuccess = false;
+        isDetailLoading = true;
+        mobilePanelIndex = 2;
+
+        try
+        {
+            selectedSong = await Http.GetFromJsonAsync<SongDetail>($"api/songs/{id}");
+            if (selectedSong != null && UserState.IsLoggedIn)
+            {
+                isFavorite = userData.Favorites.Contains(id);
+                inNewSetlist = userData.NewSetlist.Contains(id);
+                inOldSetlist = userData.OldSetlist.Contains(id);
+            }
+        }
+        catch { selectedSong = null; }
+        finally { isDetailLoading = false; }
+    }
+
+    // ── Filtering ──
+    private void ApplyFilters()
+    {
+        IEnumerable<SongItem> result = activeSection switch
+        {
+            "favorites" => allSongs.Where(s => userData.Favorites.Contains(s.Id)),
+            "new"       => allSongs.Where(s => userData.NewSetlist.Contains(s.Id)),
+            "old"       => allSongs.Where(s => userData.OldSetlist.Contains(s.Id)),
+            _           => allSongs
+        };
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+            result = result.Where(s =>
+                s.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (s.Singer?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+
+        if (!string.IsNullOrEmpty(filterCategory))
+            result = result.Where(s => s.Category == filterCategory);
+
+        if (!string.IsNullOrEmpty(filterKey))
+            result = result.Where(s => s.Key == filterKey);
+
+        displayedSongs = result.ToList();
+    }
+
+    private void OnCategoryChanged(ChangeEventArgs e) { filterCategory = e.Value?.ToString() ?? ""; ApplyFilters(); }
+    private void OnKeyChanged(ChangeEventArgs e) { filterKey = e.Value?.ToString() ?? ""; ApplyFilters(); }
+    private void ClearFilters() { filterCategory = ""; filterKey = ""; searchText = ""; ApplyFilters(); }
+
+    // ── Transpose ──
+    private void TransposeUp() => transposeSteps++;
+    private void TransposeDown() => transposeSteps--;
+    private void ResetTranspose() => transposeSteps = 0;
+
+    // ── Favorite / Setlist ──
+    private async Task ToggleFavorite()
+    {
+        if (!UserState.IsLoggedIn || selectedSongId == null) return;
+        await Http.PostAsync($"api/userdata/{UserState.UserId}/favorites/{selectedSongId}", null);
+        isFavorite = !isFavorite;
+        if (isFavorite) userData.Favorites.Add(selectedSongId.Value);
+        else userData.Favorites.Remove(selectedSongId.Value);
+        ApplyFilters();
+    }
+
+    private async Task ToggleNewSetlist()
+    {
+        if (!UserState.IsLoggedIn || selectedSongId == null) return;
+        await Http.PostAsync($"api/userdata/{UserState.UserId}/new-setlist/{selectedSongId}", null);
+        inNewSetlist = !inNewSetlist;
+        if (inNewSetlist) userData.NewSetlist.Add(selectedSongId.Value);
+        else userData.NewSetlist.Remove(selectedSongId.Value);
+        ApplyFilters();
+    }
+
+    private async Task ToggleOldSetlist()
+    {
+        if (!UserState.IsLoggedIn || selectedSongId == null) return;
+        await Http.PostAsync($"api/userdata/{UserState.UserId}/old-setlist/{selectedSongId}", null);
+        inOldSetlist = !inOldSetlist;
+        if (inOldSetlist) userData.OldSetlist.Add(selectedSongId.Value);
+        else userData.OldSetlist.Remove(selectedSongId.Value);
+        ApplyFilters();
+    }
+
+    // ── Edit ──
+    private void ToggleEditMode()
+    {
+        isEditing = !isEditing;
+        saveError = null;
+        saveSuccess = false;
+        if (isEditing && selectedSong != null)
+        {
+            editSong = new SongFormModel
+            {
+                Title = selectedSong.Title, Category = selectedSong.Category,
+                Key = selectedSong.Key, Tempo = selectedSong.Tempo,
+                Time = selectedSong.Time, Taal = selectedSong.Taal,
+                Singer = selectedSong.Singer, Mood = selectedSong.Mood,
+                Lyrics = selectedSong.Lyrics, Notes = selectedSong.Notes,
+                YoutubeLink = selectedSong.YoutubeLink, SpotifyLink = selectedSong.SpotifyLink
+            };
+            editGenresText = string.Join(", ", selectedSong.Genres ?? new());
+        }
+    }
+
+    private async Task SaveEditedSong()
+    {
+        saveError = null;
+        if (string.IsNullOrWhiteSpace(editSong.Title)) { saveError = "Title is required."; return; }
+        editSong.Genres = editGenresText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        isSaving = true;
+        try
+        {
+            var dto = new { selectedSong!.Id, editSong.Title, editSong.Category, editSong.Key, editSong.Tempo, editSong.Time, editSong.Taal, editSong.Genres, editSong.Lyrics, editSong.Singer, editSong.Mood, editSong.Notes, editSong.YoutubeLink, editSong.SpotifyLink, IsPublic = true };
+            var resp = await Http.PutAsJsonAsync($"api/songs/{selectedSong.Id}", dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                saveSuccess = true;
+                isEditing = false;
+                await SelectSong(selectedSong.Id); // reload detail
+                await LoadAllSongs();
+            }
+            else saveError = $"Save failed ({resp.StatusCode}).";
+        }
+        catch (Exception ex) { saveError = ex.Message; }
+        finally { isSaving = false; }
+    }
+
+    private async Task SaveNewSong()
+    {
+        saveError = null;
+        if (string.IsNullOrWhiteSpace(newSong.Title)) { saveError = "Title is required."; return; }
+        if (string.IsNullOrWhiteSpace(newSong.Category)) { saveError = "Category is required."; return; }
+        isSaving = true;
+        try
+        {
+            var dto = new { newSong.Title, newSong.Category, newSong.Key, newSong.Tempo, newSong.Time, newSong.Taal, Genres = new List<string>(), newSong.Lyrics, newSong.Singer, newSong.Notes, IsPublic = true };
+            var resp = await Http.PostAsJsonAsync("api/songs", dto);
+            if (resp.IsSuccessStatusCode)
+            {
+                saveSuccess = true;
+                newSong = new();
+                await LoadAllSongs();
+                await SelectSection("all");
+            }
+            else saveError = $"Save failed ({resp.StatusCode}).";
+        }
+        catch (Exception ex) { saveError = ex.Message; }
+        finally { isSaving = false; }
+    }
+
+    private async Task DeleteSong()
+    {
+        if (selectedSong == null) return;
+        isSaving = true;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/songs/{selectedSong.Id}");
+            if (resp.IsSuccessStatusCode)
+            {
+                selectedSong = null; selectedSongId = null;
+                await LoadAllSongs();
+                mobilePanelIndex = 1;
+            }
+            else saveError = "Delete failed.";
+        }
+        catch (Exception ex) { saveError = ex.Message; }
+        finally { isSaving = false; }
+    }
+
+    // ── Mobile panel navigation ──
+    private void MobileGoToPanel1() { mobilePanelIndex = 0; }
+    private void MobileGoToPanel2() { mobilePanelIndex = 1; }
+
+    // ── Models ──
+    private record SongItem(int Id, string Title, string Category, string Key,
+        List<string> Genres, string? Singer, string? Mood);
+
+    private record SongDetail(int Id, string Title, string Category, string Key,
+        string Tempo, string Time, string Taal, List<string> Genres, string Lyrics,
+        string? Singer, string? Mood, List<string>? Tags, string? YoutubeLink,
+        string? SpotifyLink, string? Notes, bool IsPublic, int ViewCount,
+        DateTime CreatedAt, DateTime? UpdatedAt);
+
+    private class UserDataState
+    {
+        public List<int> Favorites { get; set; } = new();
+        public List<int> NewSetlist { get; set; } = new();
+        public List<int> OldSetlist { get; set; } = new();
+    }
+
+    private class SongFormModel
+    {
+        public string Title { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string Key { get; set; } = "";
+        public string Tempo { get; set; } = "";
+        public string Time { get; set; } = "";
+        public string Taal { get; set; } = "";
+        public List<string> Genres { get; set; } = new();
+        public string Lyrics { get; set; } = "";
+        public string? Singer { get; set; }
+        public string? Mood { get; set; }
+        public string? Notes { get; set; }
+        public string? YoutubeLink { get; set; }
+        public string? SpotifyLink { get; set; }
+    }
+}

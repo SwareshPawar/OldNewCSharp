@@ -14,15 +14,76 @@
             </NavLink>
         </div>
 
+        <!-- Songs Section -->
+        <div class="nav-section-label px-3">SONGS</div>
+
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="api-test">
-                <span class="bi bi-code-square" aria-hidden="true"></span> API Test
+            <NavLink class="nav-link" href="songs">
+                <span class="bi bi-music-note-list" aria-hidden="true"></span> Song Library
             </NavLink>
         </div>
 
+        @* Add Song is now inside the shell Panel 1 — remove separate link *@
+
+        <!-- My Music Section (logged-in only) -->
+        @if (UserState.IsLoggedIn)
+        {
+            <div class="nav-section-label px-3">MY MUSIC</div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="favorites">
+                    <span class="bi bi-heart-fill" aria-hidden="true"></span> Favorites
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="setlist">
+                    <span class="bi bi-list-check" aria-hidden="true"></span> Setlists
+                </NavLink>
+            </div>
+        }
+
+        <!-- Account Section -->
+        <div class="nav-section-label px-3">ACCOUNT</div>
+
+        @if (UserState.IsLoggedIn)
+        {
+            <div class="nav-item px-3">
+                <div class="user-info-pill">
+                    <span class="bi bi-person-circle" aria-hidden="true"></span>
+                    <span class="user-display-name">@UserState.DisplayName</span>
+                    @if (UserState.IsAdmin)
+                    {
+                        <span class="admin-badge">Admin</span>
+                    }
+                </div>
+            </div>
+            <div class="nav-item px-3">
+                <button class="nav-link btn-logout" @onclick="Logout">
+                    <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Logout
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="auth/login">
+                    <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Login
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="auth/register">
+                    <span class="bi bi-person-plus-fill" aria-hidden="true"></span> Register
+                </NavLink>
+            </div>
+        }
+
+        <!-- Dev Tools Section -->
+        <div class="nav-section-label px-3">DEV TOOLS</div>
+
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="configuration">
-                <span class="bi bi-gear-fill" aria-hidden="true"></span> Configuration
+            <NavLink class="nav-link" href="api-test">
+                <span class="bi bi-code-square" aria-hidden="true"></span> API Test
             </NavLink>
         </div>
 
@@ -39,28 +100,69 @@
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth/login">
-                <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Login
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth/register">
-                <span class="bi bi-person-plus-fill" aria-hidden="true"></span> Register
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+            <NavLink class="nav-link" href="configuration">
+                <span class="bi bi-gear-fill" aria-hidden="true"></span> Configuration
             </NavLink>
         </div>
     </nav>
 </div>
+
+<style>
+    .nav-section-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: rgba(255,255,255,0.4);
+        padding-top: 14px;
+        padding-bottom: 4px;
+        text-transform: uppercase;
+    }
+    .user-info-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 4px;
+        color: rgba(255,255,255,0.85);
+        font-size: 0.88rem;
+    }
+    .user-display-name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 120px;
+    }
+    .admin-badge {
+        background: #e74c3c;
+        color: white;
+        font-size: 0.65rem;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-weight: 700;
+    }
+    .btn-logout {
+        background: none;
+        border: none;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+        padding: 0;
+        color: rgba(255,255,255,0.6);
+    }
+    .btn-logout:hover { color: white; }
+</style>
+
+@using OldandNewClone.Application.Services
+@inject UserStateService UserState
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+@code {
+    private void Logout()
+    {
+        Http.DefaultRequestHeaders.Authorization = null;
+        UserState.Logout();
+        Navigation.NavigateTo("/auth/login");
+    }
+}
 

@@ -1,0 +1,143 @@
+@page "/setlist"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject UserStateService UserState
+
+<div class="mobile-page-content">
+    <div class="page-header">
+        <h1>📋 Setlists</h1>
+    </div>
+
+    @if (!UserState.IsLoggedIn)
+    {
+        <div class="auth-prompt">
+            <p>🔒 Please <a href="/login">log in</a> to view your setlists.</p>
+        </div>
+    }
+    else if (isLoading)
+    {
+        <div class="loading-state"><div class="spinner"></div><p>Loading setlists...</p></div>
+    }
+    else
+    {
+        <div class="tab-bar">
+            <button class="tab-btn @(activeTab == "new" ? "tab-active" : "")" @onclick='() => activeTab = "new"'>
+                ✨ New <span class="badge">@newSongs.Count</span>
+            </button>
+            <button class="tab-btn @(activeTab == "old" ? "tab-active" : "")" @onclick='() => activeTab = "old"'>
+                🕰️ Old <span class="badge">@oldSongs.Count</span>
+            </button>
+        </div>
+
+        @if (ActiveSongs.Count == 0)
+        {
+            <div class="empty-state">
+                <p>📋 No songs in @ActiveSetlistName Setlist.</p>
+                <a href="/songs" class="btn-browse">Browse Songs</a>
+            </div>
+        }
+        else
+        {
+            <div class="song-list">
+                @for (int i = 0; i < ActiveSongs.Count; i++)
+                {
+                    var song = ActiveSongs[i];
+                    var num = i + 1;
+                    <div class="song-item">
+                        <span class="row-num">@num</span>
+                        <div class="song-item-main" @onclick="() => NavigateToSong(song.Id)">
+                            <span class="song-item-title">@song.Title</span>
+                            @if (!string.IsNullOrEmpty(song.Singer))
+                            {
+                                <span class="song-item-singer">🎤 @song.Singer</span>
+                            }
+                        </div>
+                        <div class="song-item-right">
+                            <span class="key-chip">@song.Key</span>
+                            <button class="btn-remove" @onclick="() => RemoveFromSetlist(song.Id)">✕</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .mobile-page-content { padding: 16px; max-width: 600px; margin: 0 auto; font-family: 'Segoe UI', sans-serif; }
+    .page-header { margin-bottom: 16px; }
+    .page-header h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; }
+    .tab-bar { display: flex; gap: 6px; margin-bottom: 18px; }
+    .tab-btn { flex: 1; background: #f0f0f0; border: 2px solid transparent; padding: 12px; border-radius: 14px; cursor: pointer; font-size: 0.95rem; font-weight: 700; color: #555; transition: all 0.2s; }
+    .tab-active { background: #3498db; color: white; border-color: #3498db; }
+    .badge { background: rgba(255,255,255,0.3); border-radius: 10px; padding: 1px 8px; font-size: 0.75rem; margin-left: 4px; }
+    .tab-active .badge { background: rgba(255,255,255,0.35); }
+    .song-list { display: flex; flex-direction: column; gap: 4px; }
+    .song-item { display: flex; align-items: center; gap: 10px; background: white; padding: 14px; border-radius: 14px; border: 1px solid #f0f0f0; }
+    .row-num { color: #95a5a6; font-weight: 700; font-size: 0.85rem; min-width: 22px; }
+    .song-item-main { display: flex; flex-direction: column; gap: 2px; flex: 1; cursor: pointer; min-width: 0; }
+    .song-item-title { font-weight: 700; color: #2c3e50; font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .song-item-singer { font-size: 0.8rem; color: #7f8c8d; }
+    .song-item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .key-chip { background: #eaf4fb; color: #1a5276; padding: 3px 9px; border-radius: 10px; font-size: 0.78rem; font-weight: 700; }
+    .btn-remove { background: #fdecea; border: none; color: #e74c3c; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 700; }
+    .auth-prompt, .empty-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
+    .auth-prompt a { color: #3498db; }
+    .btn-browse { display: inline-block; background: #3498db; color: white; padding: 10px 22px; border-radius: 10px; text-decoration: none; margin-top: 12px; font-weight: 600; }
+    .loading-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #e0e0e0; border-top-color: #3498db; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    private List<SongItem> newSongs = new();
+    private List<SongItem> oldSongs = new();
+    private string activeTab = "new";
+    private bool isLoading = false;
+
+    private List<SongItem> ActiveSongs => activeTab == "new" ? newSongs : oldSongs;
+    private string ActiveSetlistName => activeTab == "new" ? "New" : "Old";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserState.IsLoggedIn) await LoadSetlists();
+    }
+
+    private async Task LoadSetlists()
+    {
+        isLoading = true;
+        try
+        {
+            var ud = await Http.GetFromJsonAsync<UserData>($"api/userdata/{UserState.UserId}");
+            var all = await Http.GetFromJsonAsync<List<SongItem>>("api/songs");
+            if (all != null && ud != null)
+            {
+                newSongs = all.Where(s => ud.NewSetlist.Contains(s.Id)).ToList();
+                oldSongs = all.Where(s => ud.OldSetlist.Contains(s.Id)).ToList();
+            }
+        }
+        catch { }
+        finally { isLoading = false; }
+    }
+
+    private async Task RemoveFromSetlist(int songId)
+    {
+        var ep = activeTab == "new"
+            ? $"api/userdata/{UserState.UserId}/new-setlist/{songId}"
+            : $"api/userdata/{UserState.UserId}/old-setlist/{songId}";
+        await Http.PostAsync(ep, null);
+        if (activeTab == "new") newSongs.RemoveAll(s => s.Id == songId);
+        else oldSongs.RemoveAll(s => s.Id == songId);
+    }
+
+    private void NavigateToSong(int id) => Navigation.NavigateTo($"/songs/{id}");
+
+    private record SongItem(int Id, string Title, string Category, string Key,
+        List<string> Genres, string? Singer, string? Mood);
+
+    private class UserData
+    {
+        public List<int> NewSetlist { get; set; } = new();
+        public List<int> OldSetlist { get; set; } = new();
+    }
+}

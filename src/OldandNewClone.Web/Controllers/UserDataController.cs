@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OldandNewClone.Application.Interfaces;
 using OldandNewClone.Application.DTOs;
@@ -6,6 +7,7 @@ namespace OldandNewClone.Web.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class UserDataController : ControllerBase
 {
     private readonly IUserDataService _userDataService;
