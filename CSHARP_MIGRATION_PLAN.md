@@ -555,3 +555,29 @@ The migration from Node.js to C# .NET 10 is well underway with a solid foundatio
 - [ ] Web SongShell built
 - [ ] MAUI SongShell built
 - [ ] All buttons verified working
+
+---
+
+## Phase 8: Panel 2 Tabs + Original App Feature Parity (IN PROGRESS)
+
+### Source Analysis: SwareshPawar/OldandNew (Node.js original)
+Studied branch: main2 — https://github.com/SwareshPawar/OldandNew
+
+### Features Identified in Original App
+| Feature | Original | C# Status |
+|---------|----------|-----------|
+| New/Old permanent tabs in song list | NewTab/OldTab DOM | ⏳ Adding |
+| Full chord transposition (lines + inline) | CHORD_REGEX, transposeChord() | ⏳ Adding |
+| Auto-scroll lyrics | setupAutoScroll(), startAutoScroll() | ⏳ Adding |
+| Font size zoom on lyrics | fontSize controls | ⏳ Adding |
+| Suggested Songs drawer | suggestedSongsDrawer | 🔜 Next |
+| Screen Wake Lock | navigator.wakeLock | 🔜 Next |
+| Dark/Light theme per category | applyLyricsBackground() | 🔜 Next |
+| Song count (New/Old) in sidebar | NewCount/OldCount | ✅ nav-count |
+
+### Phase 8 Changes
+- Panel 2: ALWAYS shows ✨ New | 🕰️ Old tabs — category dropdown removed
+- Panel 3: Full chord transposition (chord lines + [Chord] inline syntax)
+- Panel 3: Auto-scroll toggle (▶ Play / ⏸ Pause)
+- Panel 3: Font size zoom (A− / A+)
+- Panel 3 toolbar redesigned to match original app toolbar style

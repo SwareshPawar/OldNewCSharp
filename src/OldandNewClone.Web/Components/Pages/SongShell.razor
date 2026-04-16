@@ -5,6 +5,8 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject OldandNewClone.Application.Services.UserStateService UserState
+@inject IJSRuntime JS
+@using System.Text.RegularExpressions
 
 <PageTitle>🎵 OldandNew — Songs</PageTitle>
 
@@ -91,18 +93,18 @@
                 <button class="p2-back-btn" @onclick="MobileGoToPanel1" title="Back">‹</button>
                 <h2 class="p2-title">@SectionTitle</h2>
             </div>
+
+            <!-- Search -->
             <div class="p2-search-row">
-                <input type="search" placeholder="Search..." class="p2-search"
+                <input type="search" placeholder="🔍 Search songs, lyrics, taal..."
+                       class="p2-search"
                        @bind="searchText" @bind:event="oninput" @onkeyup="ApplyFilters" />
             </div>
+
+            <!-- Key filter -->
             <div class="p2-filter-row">
-                <select class="p2-filter-select" @onchange="OnCategoryChanged">
-                    <option value="">All</option>
-                    <option value="Old">🕰️ Old</option>
-                    <option value="New">✨ New</option>
-                </select>
                 <select class="p2-filter-select" @onchange="OnKeyChanged">
-                    <option value="">Key</option>
+                    <option value="">All Keys</option>
                     @foreach (var k in MusicKeys)
                     {
                         <option value="@k">@k</option>
@@ -110,8 +112,27 @@
                 </select>
                 @if (HasFilters)
                 {
-                    <button class="p2-clear-btn" @onclick="ClearFilters">✕</button>
+                    <button class="p2-clear-btn" @onclick="ClearFilters" title="Clear filters">✕</button>
                 }
+            </div>
+
+            <!-- ✨ Permanent Old / New Tabs — always visible -->
+            <div class="p2-tabs">
+                <button class="p2-tab @(categoryTab == "New" ? "p2-tab-active" : "")"
+                        @onclick='() => SetCategoryTab("New")'>
+                    ✨ New
+                    <span class="p2-tab-count">@NewTabCount</span>
+                </button>
+                <button class="p2-tab @(categoryTab == "Old" ? "p2-tab-active" : "")"
+                        @onclick='() => SetCategoryTab("Old")'>
+                    🕰️ Old
+                    <span class="p2-tab-count">@OldTabCount</span>
+                </button>
+                <button class="p2-tab @(categoryTab == "" ? "p2-tab-active" : "")"
+                        @onclick='() => SetCategoryTab("")'>
+                    All
+                    <span class="p2-tab-count">@AllTabCount</span>
+                </button>
             </div>
         </div>
 
@@ -198,7 +219,7 @@
          PANEL 3 — Song Detail / Lyrics
     ═══════════════════════════════════════════════════ -->
     <div class="panel-3 @(mobilePanelIndex == 2 ? "mobile-show" : "mobile-hide")">
-        @if (selectedSong == null && activeSection != "add")
+        @if (selectedSong is null && activeSection != "add")
         {
             <div class="p3-empty">
                 <div class="p3-empty-icon">🎵</div>
@@ -209,7 +230,7 @@
         {
             <div class="p3-loading"><div class="spinner"></div></div>
         }
-        else if (selectedSong != null)
+        else if (selectedSong is not null)
         {
             <div class="p3-content">
                 <!-- P3 Top Bar -->
@@ -223,14 +244,22 @@
                                 @(isFavorite ? "❤️" : "🤍")
                             </button>
                             <button class="action-btn @(inNewSetlist ? "action-set-on" : "")"
-                                    @onclick="ToggleNewSetlist" title="New Setlist">
+                                    @onclick="ToggleNewSetlist" title="Add to New Setlist">
                                 @(inNewSetlist ? "✅" : "➕") New
                             </button>
                             <button class="action-btn @(inOldSetlist ? "action-set-on" : "")"
-                                    @onclick="ToggleOldSetlist" title="Old Setlist">
+                                    @onclick="ToggleOldSetlist" title="Add to Old Setlist">
                                 @(inOldSetlist ? "✅" : "➕") Old
                             </button>
                         }
+                        <!-- Font Size -->
+                        <button class="action-btn" @onclick="DecreaseFontSize" title="Decrease font size">A−</button>
+                        <button class="action-btn" @onclick="IncreaseFontSize" title="Increase font size">A+</button>
+                        <!-- Auto Scroll -->
+                        <button class="action-btn @(isAutoScrolling ? "action-scroll-on" : "")"
+                                @onclick="ToggleAutoScroll" title="@(isAutoScrolling ? "Stop auto-scroll" : "Start auto-scroll")">
+                            @(isAutoScrolling ? "⏸ Scroll" : "▶ Scroll")
+                        </button>
                         <button class="action-btn action-edit" @onclick="ToggleEditMode">
                             @(isEditing ? "✕ Cancel" : "✏️ Edit")
                         </button>
@@ -303,7 +332,7 @@
                     }
 
                     <!-- Lyrics -->
-                    <div class="lyrics-section">
+                    <div class="lyrics-section" id="lyrics-scroll-panel">
                         <h3 class="section-heading">📄 Lyrics</h3>
                         @if (string.IsNullOrWhiteSpace(selectedSong.Lyrics))
                         {
@@ -311,7 +340,7 @@
                         }
                         else
                         {
-                            <pre class="lyrics-body">@selectedSong.Lyrics</pre>
+                            <pre class="lyrics-body" style="font-size: @(lyricsFontSize)px;">@(new Microsoft.AspNetCore.Components.MarkupString(RenderLyricsWithChords(selectedSong.Lyrics, transposeSteps)))</pre>
                         }
                     </div>
 
@@ -443,7 +472,7 @@
     }
     .p1-nav-item:hover { background: #334155; color: #f1f5f9; }
     .nav-active { background: #3b82f6 !important; color: white !important; }
-    .nav-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+    .nav-icon { font-size: 1rem; width: 20px, flex-shrink: 0; }
     .nav-label { flex: 1; }
     .nav-count {
         background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
@@ -496,6 +525,29 @@
         background: #fee2e2; color: #ef4444; border: none;
         width: 28px; height: 28px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 700;
     }
+    .p2-tabs {
+        display: flex; gap: 8px; margin-top: 12px;
+    }
+    .p2-tab {
+        flex: 1; padding: 8px 0;
+        background: #f1f5f9; border-radius: 8px;
+        color: #64748b; text-align: center;
+        font-size: 0.85rem; font-weight: 500;
+        cursor: pointer; transition: background 0.15s;
+    }
+    .p2-tab:hover { background: #e2e8f0; }
+    .p2-tab-active {
+        background: white;
+        color: #3b82f6;
+        font-weight: 700;
+        border-bottom: 3px solid #3b82f6;
+    }
+    .p2-tab-count {
+        background: rgba(59,130,246,0.1); color: #3b82f6;
+        border-radius: 8px; padding: 2px 8px;
+        font-size: 0.72rem; font-weight: 600;
+        margin-left: 6px;
+    }
     .p2-body { flex: 1; overflow-y: auto; }
     .song-row {
         display: flex; justify-content: space-between; align-items: center;
@@ -533,19 +585,12 @@
     .action-fav-on { background: #fef2f2; border-color: #ef4444; color: #ef4444 !important; }
     .action-set-on { background: #f0fdf4; border-color: #22c55e; color: #16a34a !important; }
     .action-edit { background: #fffbeb; border-color: #f59e0b; color: #d97706; }
-    .p3-meta { margin-bottom: 16px; }
-    .p3-badges { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-    .cat-badge { padding: 4px 12px; border-radius: 16px; font-size: 0.78rem; font-weight: 700; }
-    .badge-old { background: #fef3c7; color: #92400e; }
-    .badge-new { background: #d1fae5; color: #065f46; }
-    .mood-badge { background: #f3e8ff; color: #6d28d9; padding: 4px 12px; border-radius: 16px; font-size: 0.78rem; font-weight: 700; }
-    .p3-title { font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 0 0 6px; line-height: 1.2; }
-    .p3-singer { color: #64748b; margin: 0 0 12px; font-size: 0.9rem; }
-    .p3-info-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-    .info-chip { background: #f0f9ff; color: #0369a1; padding: 5px 12px; border-radius: 10px; font-size: 0.82rem; }
-    .genre-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-    .genre-chip { background: #f1f5f9; color: #475569; padding: 3px 10px; border-radius: 10px; font-size: 0.78rem; }
+    .action-scroll-on { background: #eff6ff; border-color: #3b82f6; color: #2563eb !important; animation: pulse-scroll 1.5s ease-in-out infinite; }
+    @@keyframes pulse-scroll { 0%,100% { opacity:1; } 50% { opacity:0.65; } }
 
+    /* ── Chord highlighting ── */
+    .chord-line { color: #2563eb; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 0.05em; }
+    .inline-chord { color: #2563eb; font-weight: 700; font-size: 0.85em; vertical-align: super; margin: 0 1px; }
     .transpose-bar {
         display: flex; align-items: center; gap: 10px; background: white;
         border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 12px;
@@ -580,7 +625,7 @@
     /* ── Edit / Add Forms ── */
     .edit-form, .add-song-form { padding: 20px 28px; max-width: 700px; }
     .edit-heading { color: #1e293b; margin: 0 0 16px; font-size: 1.2rem; }
-    .form-group { margin-bottom: 14px; display: flex; flex-direction: column; gap: 5px; }
+    .form-group { margin-bottom: 14px; display: flex; flex-direction: column, gap: 5px; }
     .form-group label { font-size: 0.82rem; font-weight: 600; color: #475569; }
     .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 0; }
     .form-input, .form-select, .form-textarea {
@@ -635,11 +680,11 @@
     private string activeSection = "all";
     private int? selectedSongId;
     private string searchText = "";
-    private string filterCategory = "";
+    private string categoryTab = "New";   // ← permanent tab: "New" | "Old" | ""
     private string filterKey = "";
     private bool isLoading = true;
     private bool isDetailLoading = false;
-    private int mobilePanelIndex = 0; // 0=nav, 1=list, 2=detail
+    private int mobilePanelIndex = 0;
 
     // ── Transpose ──
     private int transposeSteps = 0;
@@ -648,6 +693,13 @@
     private bool isFavorite = false;
     private bool inNewSetlist = false;
     private bool inOldSetlist = false;
+
+    // ── Font size ──
+    private int lyricsFontSize = 16;
+
+    // ── Auto scroll ──
+    private bool isAutoScrolling = false;
+    private System.Threading.CancellationTokenSource? _scrollCts;
 
     // ── Edit mode ──
     private bool isEditing = false;
@@ -667,7 +719,12 @@
     private static readonly string[] Moods =
         { "Worship","Praise","Reflective","Joyful","Peaceful","Energetic","Devotional" };
 
-    private bool HasFilters => !string.IsNullOrEmpty(filterCategory) || !string.IsNullOrEmpty(filterKey);
+    // Tab counts
+    private int NewTabCount => GetSectionBase().Count(s => s.Category == "New");
+    private int OldTabCount => GetSectionBase().Count(s => s.Category == "Old");
+    private int AllTabCount => GetSectionBase().Count();
+
+    private bool HasFilters => !string.IsNullOrEmpty(filterKey);
 
     private string SectionTitle => activeSection switch
     {
@@ -778,24 +835,30 @@
         finally { isDetailLoading = false; }
     }
 
-    // ── Filtering ──
-    private void ApplyFilters()
+    // ── Section base (before tab/search/key filters) ──
+    private IEnumerable<SongItem> GetSectionBase()
     {
-        IEnumerable<SongItem> result = activeSection switch
+        return activeSection switch
         {
             "favorites" => allSongs.Where(s => userData.Favorites.Contains(s.Id)),
             "new"       => allSongs.Where(s => userData.NewSetlist.Contains(s.Id)),
             "old"       => allSongs.Where(s => userData.OldSetlist.Contains(s.Id)),
             _           => allSongs
         };
+    }
+
+    // ── Filtering ──
+    private void ApplyFilters()
+    {
+        var result = GetSectionBase();
 
         if (!string.IsNullOrWhiteSpace(searchText))
             result = result.Where(s =>
                 s.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
                 (s.Singer?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false));
 
-        if (!string.IsNullOrEmpty(filterCategory))
-            result = result.Where(s => s.Category == filterCategory);
+        if (!string.IsNullOrEmpty(categoryTab))
+            result = result.Where(s => s.Category == categoryTab);
 
         if (!string.IsNullOrEmpty(filterKey))
             result = result.Where(s => s.Key == filterKey);
@@ -803,19 +866,52 @@
         displayedSongs = result.ToList();
     }
 
-    private void OnCategoryChanged(ChangeEventArgs e) { filterCategory = e.Value?.ToString() ?? ""; ApplyFilters(); }
+    private void SetCategoryTab(string tab) { categoryTab = tab; ApplyFilters(); }
     private void OnKeyChanged(ChangeEventArgs e) { filterKey = e.Value?.ToString() ?? ""; ApplyFilters(); }
-    private void ClearFilters() { filterCategory = ""; filterKey = ""; searchText = ""; ApplyFilters(); }
+    private void ClearFilters() { filterKey = ""; searchText = ""; ApplyFilters(); }
 
     // ── Transpose ──
     private void TransposeUp() => transposeSteps++;
     private void TransposeDown() => transposeSteps--;
     private void ResetTranspose() => transposeSteps = 0;
 
+    // ── Font Size ──
+    private void IncreaseFontSize() => lyricsFontSize = Math.Min(lyricsFontSize + 2, 32);
+    private void DecreaseFontSize() => lyricsFontSize = Math.Max(lyricsFontSize - 2, 10);
+
+    // ── Auto Scroll ──
+    private void ToggleAutoScroll()
+    {
+        if (isAutoScrolling)
+        {
+            _scrollCts?.Cancel();
+            _scrollCts = null;
+            isAutoScrolling = false;
+        }
+        else
+        {
+            isAutoScrolling = true;
+            _scrollCts = new System.Threading.CancellationTokenSource();
+            var token = _scrollCts.Token;
+            _ = Task.Run(async () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(50, token).ConfigureAwait(false);
+                    await InvokeAsync(async () =>
+                    {
+                        await JS.InvokeVoidAsync("eval",
+                            "document.getElementById('lyrics-scroll-panel')?.scrollBy(0, 1)");
+                    });
+                }
+            }, token);
+        }
+    }
+
     // ── Favorite / Setlist ──
     private async Task ToggleFavorite()
     {
-        if (!UserState.IsLoggedIn || selectedSongId == null) return;
+        if (!UserState.IsLoggedIn || selectedSongId is null) return;
         await Http.PostAsync($"api/userdata/{UserState.UserId}/favorites/{selectedSongId}", null);
         isFavorite = !isFavorite;
         if (isFavorite) userData.Favorites.Add(selectedSongId.Value);
@@ -825,7 +921,7 @@
 
     private async Task ToggleNewSetlist()
     {
-        if (!UserState.IsLoggedIn || selectedSongId == null) return;
+        if (!UserState.IsLoggedIn || selectedSongId is null) return;
         await Http.PostAsync($"api/userdata/{UserState.UserId}/new-setlist/{selectedSongId}", null);
         inNewSetlist = !inNewSetlist;
         if (inNewSetlist) userData.NewSetlist.Add(selectedSongId.Value);
@@ -835,7 +931,7 @@
 
     private async Task ToggleOldSetlist()
     {
-        if (!UserState.IsLoggedIn || selectedSongId == null) return;
+        if (!UserState.IsLoggedIn || selectedSongId is null) return;
         await Http.PostAsync($"api/userdata/{UserState.UserId}/old-setlist/{selectedSongId}", null);
         inOldSetlist = !inOldSetlist;
         if (inOldSetlist) userData.OldSetlist.Add(selectedSongId.Value);
@@ -849,7 +945,7 @@
         isEditing = !isEditing;
         saveError = null;
         saveSuccess = false;
-        if (isEditing && selectedSong != null)
+        if (isEditing && selectedSong is not null)
         {
             editSong = new SongFormModel
             {
@@ -874,13 +970,7 @@
         {
             var dto = new { selectedSong!.Id, editSong.Title, editSong.Category, editSong.Key, editSong.Tempo, editSong.Time, editSong.Taal, editSong.Genres, editSong.Lyrics, editSong.Singer, editSong.Mood, editSong.Notes, editSong.YoutubeLink, editSong.SpotifyLink, IsPublic = true };
             var resp = await Http.PutAsJsonAsync($"api/songs/{selectedSong.Id}", dto);
-            if (resp.IsSuccessStatusCode)
-            {
-                saveSuccess = true;
-                isEditing = false;
-                await SelectSong(selectedSong.Id); // reload detail
-                await LoadAllSongs();
-            }
+            if (resp.IsSuccessStatusCode) { saveSuccess = true; isEditing = false; await SelectSong(selectedSong.Id); await LoadAllSongs(); }
             else saveError = $"Save failed ({resp.StatusCode}).";
         }
         catch (Exception ex) { saveError = ex.Message; }
@@ -897,13 +987,7 @@
         {
             var dto = new { newSong.Title, newSong.Category, newSong.Key, newSong.Tempo, newSong.Time, newSong.Taal, Genres = new List<string>(), newSong.Lyrics, newSong.Singer, newSong.Notes, IsPublic = true };
             var resp = await Http.PostAsJsonAsync("api/songs", dto);
-            if (resp.IsSuccessStatusCode)
-            {
-                saveSuccess = true;
-                newSong = new();
-                await LoadAllSongs();
-                await SelectSection("all");
-            }
+            if (resp.IsSuccessStatusCode) { saveSuccess = true; newSong = new(); await LoadAllSongs(); await SelectSection("all"); }
             else saveError = $"Save failed ({resp.StatusCode}).";
         }
         catch (Exception ex) { saveError = ex.Message; }
@@ -912,24 +996,119 @@
 
     private async Task DeleteSong()
     {
-        if (selectedSong == null) return;
+        if (selectedSong is null) return;
         isSaving = true;
         try
         {
             var resp = await Http.DeleteAsync($"api/songs/{selectedSong.Id}");
-            if (resp.IsSuccessStatusCode)
-            {
-                selectedSong = null; selectedSongId = null;
-                await LoadAllSongs();
-                mobilePanelIndex = 1;
-            }
+            if (resp.IsSuccessStatusCode) { selectedSong = null; selectedSongId = null; await LoadAllSongs(); mobilePanelIndex = 1; }
             else saveError = "Delete failed.";
         }
         catch (Exception ex) { saveError = ex.Message; }
         finally { isSaving = false; }
     }
 
-    // ── Mobile panel navigation ──
+    // ── Chord Transposition Engine (mirrors original app's transposeChord logic) ──
+    private static readonly string[] ChordRoots =
+        { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+
+    private static readonly Dictionary<string, string> FlatToSharp = new()
+    {
+        {"Db","C#"},{"Eb","D#"},{"Fb","E"},{"Gb","F#"},{"Ab","G#"},{"Bb","A#"},{"Cb","B"}
+    };
+
+    // Matches full chord symbols: C, Am, G#maj7, Bb/F, etc.
+    private static readonly Regex ChordRegex = new(
+        @"([A-G][#b]?)(maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/([A-G][#b]?))?",
+        RegexOptions.Compiled);
+
+    // Matches a whole line that is only chords + spaces
+    private static readonly Regex ChordLineRegex = new(
+        @"^(\s*[A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?\s*)+$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Matches [Chord] inline markers: [Am], [G#7], etc.
+    private static readonly Regex InlineChordRegex = new(
+        @"\[([A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?)\]",
+        RegexOptions.Compiled);
+
+    private static string TransposeSingleRoot(string root, int steps)
+    {
+        if (FlatToSharp.TryGetValue(root, out var sharp)) root = sharp;
+        var idx = Array.IndexOf(ChordRoots, root);
+        if (idx < 0) return root;
+        return ChordRoots[((idx + steps) % 12 + 12) % 12];
+    }
+
+    private static string TransposeChordSymbol(string chord, int steps)
+    {
+        if (steps == 0) return chord;
+        return ChordRegex.Replace(chord, m =>
+        {
+            var root = TransposeSingleRoot(m.Groups[1].Value, steps);
+            var quality = m.Groups[2].Value;
+            var bass = m.Groups[3].Success
+                ? "/" + TransposeSingleRoot(m.Groups[3].Value, steps)
+                : "";
+            return root + quality + bass;
+        });
+    }
+
+    private static string RenderLyricsWithChords(string lyrics, int steps)
+    {
+        if (string.IsNullOrWhiteSpace(lyrics))
+            return System.Web.HttpUtility.HtmlEncode(lyrics);
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var rawLine in lyrics.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+
+            // 1. Inline [Chord] markers
+            if (InlineChordRegex.IsMatch(line))
+            {
+                var escaped = System.Web.HttpUtility.HtmlEncode(
+                    InlineChordRegex.Replace(line, m => $"\x01{m.Groups[1].Value}\x02"));
+                escaped = escaped
+                    .Replace("\x01", "<span class=\"inline-chord\">[")
+                    .Replace("\x02", steps == 0
+                        ? "]</span>"
+                        : $" → {System.Web.HttpUtility.HtmlEncode(TransposeChordSymbol(
+                            line[line.IndexOf('[')..(line.IndexOf(']') + 1)], steps))}]</span>");
+
+                // Simpler: re-process properly
+                var rendered = InlineChordRegex.Replace(
+                    System.Web.HttpUtility.HtmlEncode(line),
+                    m =>
+                    {
+                        var orig = m.Groups[1].Value;
+                        var transposed = TransposeChordSymbol(orig, steps);
+                        return $"<span class=\"inline-chord\">[{System.Web.HttpUtility.HtmlEncode(transposed)}]</span>";
+                    });
+                sb.AppendLine(rendered);
+                continue;
+            }
+
+            // 2. Chord-only line
+            if (!string.IsNullOrWhiteSpace(line) && ChordLineRegex.IsMatch(line.Trim()))
+            {
+                var transposed = steps == 0 ? line
+                    : ChordRegex.Replace(line, m =>
+                    {
+                        if (!m.Success || string.IsNullOrEmpty(m.Groups[1].Value)) return m.Value;
+                        return TransposeChordSymbol(m.Value, steps);
+                    });
+                sb.AppendLine($"<span class=\"chord-line\">{System.Web.HttpUtility.HtmlEncode(transposed)}</span>");
+                continue;
+            }
+
+            // 3. Plain lyric line
+            sb.AppendLine(System.Web.HttpUtility.HtmlEncode(line));
+        }
+        return sb.ToString();
+    }
+
+    // ── Mobile navigation ──
     private void MobileGoToPanel1() { mobilePanelIndex = 0; }
     private void MobileGoToPanel2() { mobilePanelIndex = 1; }
 
