@@ -581,3 +581,9 @@ Studied branch: main2 — https://github.com/SwareshPawar/OldandNew
 - Panel 3: Auto-scroll toggle (▶ Play / ⏸ Pause)
 - Panel 3: Font size zoom (A− / A+)
 - Panel 3 toolbar redesigned to match original app toolbar style
+
+### Phase 9 Update (Implemented)
+- ✅ Suggested Songs drawer in Panel 3 (category/key-based recommendations)
+- ✅ Lyrics theme toggle (Auto / Dark / Light)
+- ✅ Keep Screen On toggle (Wake Lock API with graceful fallback)
+- ✅ Auto-scroll now stops automatically on song/section change

@@ -7,10 +7,11 @@
 @inject OldandNewClone.Application.Services.UserStateService UserState
 @inject IJSRuntime JS
 @using System.Text.RegularExpressions
+@using System.Text.Json
 
 <PageTitle>🎵 OldandNew — Songs</PageTitle>
 
-<div class="shell">
+<div class="shell @AppThemeClass">
 
     <!-- ═══════════════════════════════════════════════════
          PANEL 1 — Navigation Rail
@@ -51,7 +52,8 @@
             </button>
 
             <button class="p1-nav-item @(activeSection == "old" ? "nav-active" : "")"
-                    @onclick='() => SelectSection("old")'>
+                    @onclick='() => SelectSection("old")'
+                    >
                 <span class="nav-icon">🕰️</span>
                 <span class="nav-label">Old Setlist</span>
                 <span class="nav-count">@userData.OldSetlist.Count</span>
@@ -59,9 +61,14 @@
         </nav>
 
         <div class="p1-footer">
+            <button class="p1-nav-item p1-theme-btn" @onclick="ToggleAppThemeMode">
+                <span class="nav-icon">🌓</span>
+                <span class="nav-label">Theme: @AppThemeLabel</span>
+            </button>
+
             @if (UserState.IsLoggedIn)
             {
-                <button class="p1-nav-item" @onclick='() => SelectSection("add")'>
+                <button class="p1-nav-item" @onclick="OpenAddModal">
                     <span class="nav-icon">➕</span>
                     <span class="nav-label">Add Song</span>
                 </button>
@@ -138,44 +145,7 @@
 
         <!-- P2 Body -->
         <div class="p2-body">
-            @if (activeSection == "add")
-            {
-                <!-- Inline Add Song Form -->
-                <div class="add-song-form">
-                    @if (saveError != null)
-                    {
-                        <div class="form-error">⚠️ @saveError</div>
-                    }
-                    @if (saveSuccess)
-                    {
-                        <div class="form-success">✅ Song saved!</div>
-                    }
-                    <div class="form-group"><label>Title *</label><input @bind="newSong.Title" class="form-input" placeholder="Song title" /></div>
-                    <div class="form-row-2">
-                        <div class="form-group"><label>Category *</label>
-                            <select @bind="newSong.Category" class="form-select">
-                                <option value="">--</option><option value="Old">Old</option><option value="New">New</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>Key</label>
-                            <select @bind="newSong.Key" class="form-select">
-                                <option value="">--</option>
-                                @foreach (var k in MusicKeys) { <option value="@k">@k</option> }
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row-2">
-                        <div class="form-group"><label>Singer</label><input @bind="newSong.Singer" class="form-input" placeholder="Singer name" /></div>
-                        <div class="form-group"><label>Tempo (BPM)</label><input @bind="newSong.Tempo" class="form-input" placeholder="120" /></div>
-                    </div>
-                    <div class="form-group"><label>Lyrics</label><textarea @bind="newSong.Lyrics" class="form-textarea" rows="8" placeholder="Song lyrics..."></textarea></div>
-                    <div class="form-group"><label>Notes</label><input @bind="newSong.Notes" class="form-input" placeholder="Any notes..." /></div>
-                    <button @onclick="SaveNewSong" disabled="@isSaving" class="btn-save-song">
-                        @(isSaving ? "Saving..." : "💾 Save Song")
-                    </button>
-                </div>
-            }
-            else if (isLoading)
+            @if (isLoading)
             {
                 <div class="p2-loading"><div class="spinner"></div></div>
             }
@@ -219,7 +189,7 @@
          PANEL 3 — Song Detail / Lyrics
     ═══════════════════════════════════════════════════ -->
     <div class="panel-3 @(mobilePanelIndex == 2 ? "mobile-show" : "mobile-hide")">
-        @if (selectedSong is null && activeSection != "add")
+        @if (selectedSong is null)
         {
             <div class="p3-empty">
                 <div class="p3-empty-icon">🎵</div>
@@ -252,178 +222,235 @@
                                 @(inOldSetlist ? "✅" : "➕") Old
                             </button>
                         }
-                        <!-- Font Size -->
+                        <button class="action-btn" @onclick="ToggleSuggestedDrawer" title="Suggested songs">🎲 Suggestions</button>
                         <button class="action-btn" @onclick="DecreaseFontSize" title="Decrease font size">A−</button>
                         <button class="action-btn" @onclick="IncreaseFontSize" title="Increase font size">A+</button>
-                        <!-- Auto Scroll -->
                         <button class="action-btn @(isAutoScrolling ? "action-scroll-on" : "")"
                                 @onclick="ToggleAutoScroll" title="@(isAutoScrolling ? "Stop auto-scroll" : "Start auto-scroll")">
                             @(isAutoScrolling ? "⏸ Scroll" : "▶ Scroll")
                         </button>
-                        <button class="action-btn action-edit" @onclick="ToggleEditMode">
-                            @(isEditing ? "✕ Cancel" : "✏️ Edit")
-                        </button>
+                        <button class="action-btn action-edit" @onclick="OpenEditModal">✏️ Edit</button>
                     </div>
                 </div>
 
-                @if (!isEditing)
-                {
-                    <!-- ── VIEW MODE ── -->
-                    <div class="p3-meta">
-                        <div class="p3-badges">
-                            <span class="cat-badge @(selectedSong.Category == "Old" ? "badge-old" : "badge-new")">
-                                @(selectedSong.Category == "Old" ? "🕰️ Old" : "✨ New")
-                            </span>
-                            @if (!string.IsNullOrEmpty(selectedSong.Mood))
-                            {
-                                <span class="mood-badge">@selectedSong.Mood</span>
-                            }
-                        </div>
-                        <h1 class="p3-title">@selectedSong.Title</h1>
-                        @if (!string.IsNullOrEmpty(selectedSong.Singer))
-                        {
-                            <p class="p3-singer">🎤 @selectedSong.Singer</p>
-                        }
-                        <div class="p3-info-chips">
-                            <span class="info-chip">🎼 <strong>@TransposedKey</strong></span>
-                            @if (!string.IsNullOrEmpty(selectedSong.Tempo)) { <span class="info-chip">⏱ @selectedSong.Tempo BPM</span> }
-                            @if (!string.IsNullOrEmpty(selectedSong.Time)) { <span class="info-chip">@selectedSong.Time</span> }
-                            @if (!string.IsNullOrEmpty(selectedSong.Taal)) { <span class="info-chip">🥁 @selectedSong.Taal</span> }
-                        </div>
-                        @if (selectedSong.Genres.Any())
-                        {
-                            <div class="genre-chips">
-                                @foreach (var g in selectedSong.Genres)
-                                {
-                                    <span class="genre-chip">@g</span>
-                                }
-                            </div>
-                        }
-                    </div>
-
-                    <!-- Transpose control -->
-                    <div class="transpose-bar">
-                        <span class="transpose-label">🎹 Transpose</span>
-                        <button @onclick="TransposeDown" class="transpose-btn">−</button>
-                        <span class="transpose-display">
-                            @if (transposeSteps == 0) { <span>Original</span> }
-                            else { <span>@(transposeSteps > 0 ? $"+{transposeSteps}" : $"{transposeSteps}") semitones</span> }
+                <div class="p3-meta">
+                    <div class="p3-badges">
+                        <span class="cat-badge @(selectedSong.Category == "Old" ? "badge-old" : "badge-new")">
+                            @(selectedSong.Category == "Old" ? "🕰️ Old" : "✨ New")
                         </span>
-                        <button @onclick="TransposeUp" class="transpose-btn">+</button>
-                        @if (transposeSteps != 0)
+                        @if (!string.IsNullOrEmpty(selectedSong.Mood))
                         {
-                            <button @onclick="ResetTranspose" class="btn-reset-t">↺ Reset</button>
+                            <span class="mood-badge">@selectedSong.Mood</span>
                         }
                     </div>
-
-                    <!-- External links -->
-                    @if (!string.IsNullOrEmpty(selectedSong.YoutubeLink) || !string.IsNullOrEmpty(selectedSong.SpotifyLink))
+                    <h1 class="p3-title">@selectedSong.Title</h1>
+                    @if (!string.IsNullOrEmpty(selectedSong.Singer))
                     {
-                        <div class="ext-links">
-                            @if (!string.IsNullOrEmpty(selectedSong.YoutubeLink))
-                            {
-                                <a href="@selectedSong.YoutubeLink" target="_blank" class="link-yt">▶ YouTube</a>
-                            }
-                            @if (!string.IsNullOrEmpty(selectedSong.SpotifyLink))
-                            {
-                                <a href="@selectedSong.SpotifyLink" target="_blank" class="link-sp">🎧 Spotify</a>
-                            }
-                        </div>
+                        <p class="p3-singer">🎤 @selectedSong.Singer</p>
                     }
-
-                    <!-- Lyrics -->
-                    <div class="lyrics-section" id="lyrics-scroll-panel">
-                        <h3 class="section-heading">📄 Lyrics</h3>
-                        @if (string.IsNullOrWhiteSpace(selectedSong.Lyrics))
-                        {
-                            <p class="no-content">No lyrics available.</p>
-                        }
-                        else
-                        {
-                            <pre class="lyrics-body" style="font-size: @(lyricsFontSize)px;">@(new Microsoft.AspNetCore.Components.MarkupString(RenderLyricsWithChords(selectedSong.Lyrics, transposeSteps)))</pre>
-                        }
+                    <div class="p3-info-chips">
+                        <span class="info-chip">🎼 <strong>@TransposedKey</strong></span>
+                        @if (!string.IsNullOrEmpty(selectedSong.Tempo)) { <span class="info-chip">⏱ @selectedSong.Tempo BPM</span> }
+                        @if (!string.IsNullOrEmpty(selectedSong.Time)) { <span class="info-chip">@selectedSong.Time</span> }
+                        @if (!string.IsNullOrEmpty(selectedSong.Taal)) { <span class="info-chip">🥁 @selectedSong.Taal</span> }
                     </div>
-
-                    @if (!string.IsNullOrEmpty(selectedSong.Notes))
+                    @if (selectedSong.Genres.Any())
                     {
-                        <div class="notes-section">
-                            <h3 class="section-heading">📝 Notes</h3>
-                            <p class="notes-body">@selectedSong.Notes</p>
+                        <div class="genre-chips">
+                            @foreach (var g in selectedSong.Genres)
+                            {
+                                <span class="genre-chip">@g</span>
+                            }
                         </div>
                     }
+                </div>
 
-                    @if (selectedSong.Tags != null && selectedSong.Tags.Any())
+                <div class="transpose-bar">
+                    <span class="transpose-label">🎹 Transpose</span>
+                    <button @onclick="TransposeDown" class="transpose-btn">−</button>
+                    <span class="transpose-display">
+                        @if (transposeSteps == 0) { <span>Original</span> }
+                        else { <span>@(transposeSteps > 0 ? $"+{transposeSteps}" : $"{transposeSteps}") semitones</span> }
+                    </span>
+                    <button @onclick="TransposeUp" class="transpose-btn">+</button>
+                    @if (transposeSteps != 0)
                     {
-                        <div class="tags-row">
-                            <span class="tags-label">🏷️</span>
-                            @foreach (var tag in selectedSong.Tags) { <span class="tag-chip">@tag</span> }
-                        </div>
+                        <button @onclick="ResetTranspose" class="btn-reset-t">↺ Reset</button>
                     }
-                }
-                else
+                </div>
+
+                @if (!string.IsNullOrEmpty(selectedSong.YoutubeLink) || !string.IsNullOrEmpty(selectedSong.SpotifyLink))
                 {
-                    <!-- ── EDIT MODE ── -->
-                    <div class="edit-form">
-                        <h2 class="edit-heading">✏️ Edit Song</h2>
-                        @if (saveError != null) { <div class="form-error">⚠️ @saveError</div> }
-                        @if (saveSuccess) { <div class="form-success">✅ Saved!</div> }
+                    <div class="ext-links">
+                        @if (!string.IsNullOrEmpty(selectedSong.YoutubeLink))
+                        {
+                            <a href="@selectedSong.YoutubeLink" target="_blank" class="link-yt">▶ YouTube</a>
+                        }
+                        @if (!string.IsNullOrEmpty(selectedSong.SpotifyLink))
+                        {
+                            <a href="@selectedSong.SpotifyLink" target="_blank" class="link-sp">🎧 Spotify</a>
+                        }
+                    </div>
+                }
 
-                        <div class="form-group"><label>Title *</label><input @bind="editSong.Title" class="form-input" /></div>
-                        <div class="form-row-2">
-                            <div class="form-group"><label>Category</label>
-                                <select @bind="editSong.Category" class="form-select">
-                                    <option value="Old">Old</option><option value="New">New</option>
-                                </select>
-                            </div>
-                            <div class="form-group"><label>Key</label>
-                                <select @bind="editSong.Key" class="form-select">
-                                    <option value="">--</option>
-                                    @foreach (var k in MusicKeys) { <option value="@k">@k</option> }
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row-2">
-                            <div class="form-group"><label>Singer</label><input @bind="editSong.Singer" class="form-input" /></div>
-                            <div class="form-group"><label>Mood</label>
-                                <select @bind="editSong.Mood" class="form-select">
-                                    <option value="">--</option>
-                                    @foreach (var m in Moods) { <option value="@m">@m</option> }
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row-2">
-                            <div class="form-group"><label>Tempo (BPM)</label><input @bind="editSong.Tempo" class="form-input" /></div>
-                            <div class="form-group"><label>Time</label>
-                                <select @bind="editSong.Time" class="form-select">
-                                    <option value="">--</option>
-                                    <option>4/4</option><option>3/4</option><option>6/8</option><option>2/4</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group"><label>Taal</label><input @bind="editSong.Taal" class="form-input" /></div>
-                        <div class="form-group"><label>Genres (comma separated)</label><input @bind="editGenresText" class="form-input" /></div>
-                        <div class="form-group"><label>Lyrics</label><textarea @bind="editSong.Lyrics" class="form-textarea" rows="10"></textarea></div>
-                        <div class="form-group"><label>Notes</label><input @bind="editSong.Notes" class="form-input" /></div>
-                        <div class="form-row-2">
-                            <div class="form-group"><label>YouTube Link</label><input @bind="editSong.YoutubeLink" class="form-input" type="url" /></div>
-                            <div class="form-group"><label>Spotify Link</label><input @bind="editSong.SpotifyLink" class="form-input" type="url" /></div>
-                        </div>
-                        <div class="edit-actions">
-                            @if (UserState.IsAdmin)
-                            {
-                                <button @onclick="DeleteSong" class="btn-delete" disabled="@isSaving">🗑️ Delete</button>
-                            }
-                            <button @onclick="ToggleEditMode" class="btn-cancel-edit">Cancel</button>
-                            <button @onclick="SaveEditedSong" class="btn-save-song" disabled="@isSaving">
-                                @(isSaving ? "Saving..." : "💾 Save")
-                            </button>
-                        </div>
+                <div class="lyrics-section" id="lyrics-scroll-panel">
+                    <h3 class="section-heading">📄 Lyrics</h3>
+                    @if (string.IsNullOrWhiteSpace(selectedSong.Lyrics))
+                    {
+                        <p class="no-content">No lyrics available.</p>
+                    }
+                    else
+                    {
+                        <pre class="lyrics-body" style="font-size: @(lyricsFontSize)px;">@(new Microsoft.AspNetCore.Components.MarkupString(RenderLyricsWithChords(selectedSong.Lyrics, transposeSteps)))</pre>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(selectedSong.Notes))
+                {
+                    <div class="notes-section">
+                        <h3 class="section-heading">📝 Notes</h3>
+                        <p class="notes-body">@selectedSong.Notes</p>
+                    </div>
+                }
+
+                @if (selectedSong.Tags != null && selectedSong.Tags.Any())
+                {
+                    <div class="tags-row">
+                        <span class="tags-label">🏷️</span>
+                        @foreach (var tag in selectedSong.Tags) { <span class="tag-chip">@tag</span> }
                     </div>
                 }
             </div>
+
+            @if (suggestedDrawerOpen)
+            {
+                <div class="suggested-overlay" @onclick="CloseSuggestedDrawer"></div>
+                <aside class="suggested-drawer">
+                    <div class="suggested-header">
+                        <h4>🎲 Suggested Songs</h4>
+                        <button class="suggested-close" @onclick="CloseSuggestedDrawer">✕</button>
+                    </div>
+                    @if (suggestedSongs.Count == 0)
+                    {
+                        <div class="suggested-empty">No suggestions available.</div>
+                    }
+                    else
+                    {
+                        <div class="suggested-list">
+                            @foreach (var s in suggestedSongs)
+                            {
+                                <button class="suggested-item" @onclick="() => SelectSuggestedSong(s.Id)">
+                                    <span class="suggested-title">@s.Title</span>
+                                    <span class="suggested-meta">@s.Category • @s.Key</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </aside>
+            }
         }
     </div>
 </div>
+
+@if (showSongModal)
+{
+    <div class="song-modal-overlay" @onclick="CloseSongModal"></div>
+    <div class="song-modal-container" role="dialog" aria-modal="true">
+        <div class="song-modal-header">
+            <h3>@(isEditModal ? "✏️ Edit Song" : "➕ Add Song")</h3>
+            <button class="song-modal-close" @onclick="CloseSongModal">✕</button>
+        </div>
+
+        <div class="song-modal-body">
+            @if (saveError != null)
+            {
+                <div class="form-error">⚠️ @saveError</div>
+            }
+            @if (saveSuccess)
+            {
+                <div class="form-success">✅ Saved successfully!</div>
+            }
+
+            @if (isEditModal)
+            {
+                <div class="form-group"><label>Title *</label><input @bind="editSong.Title" class="form-input" /></div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>Category</label>
+                        <select @bind="editSong.Category" class="form-select">
+                            <option value="Old">Old</option><option value="New">New</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Key</label>
+                        <select @bind="editSong.Key" class="form-select">
+                            <option value="">--</option>
+                            @foreach (var k in MusicKeys) { <option value="@k">@k</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>Singer</label><input @bind="editSong.Singer" class="form-input" /></div>
+                    <div class="form-group"><label>Mood</label>
+                        <select @bind="editSong.Mood" class="form-select">
+                            <option value="">--</option>
+                            @foreach (var m in Moods) { <option value="@m">@m</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>Tempo (BPM)</label><input @bind="editSong.Tempo" class="form-input" /></div>
+                    <div class="form-group"><label>Time</label>
+                        <select @bind="editSong.Time" class="form-select">
+                            <option value="">--</option>
+                            <option>4/4</option><option>3/4</option><option>6/8</option><option>2/4</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group"><label>Taal</label><input @bind="editSong.Taal" class="form-input" /></div>
+                <div class="form-group"><label>Genres (comma separated)</label><input @bind="editGenresText" class="form-input" /></div>
+                <div class="form-group"><label>Lyrics</label><textarea @bind="editSong.Lyrics" class="form-textarea" rows="9"></textarea></div>
+                <div class="form-group"><label>Notes</label><input @bind="editSong.Notes" class="form-input" /></div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>YouTube Link</label><input @bind="editSong.YoutubeLink" class="form-input" type="url" /></div>
+                    <div class="form-group"><label>Spotify Link</label><input @bind="editSong.SpotifyLink" class="form-input" type="url" /></div>
+                </div>
+            }
+            else
+            {
+                <div class="form-group"><label>Title *</label><input @bind="newSong.Title" class="form-input" placeholder="Song title" /></div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>Category *</label>
+                        <select @bind="newSong.Category" class="form-select">
+                            <option value="">--</option><option value="Old">Old</option><option value="New">New</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Key</label>
+                        <select @bind="newSong.Key" class="form-select">
+                            <option value="">--</option>
+                            @foreach (var k in MusicKeys) { <option value="@k">@k</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>Singer</label><input @bind="newSong.Singer" class="form-input" placeholder="Singer name" /></div>
+                    <div class="form-group"><label>Tempo (BPM)</label><input @bind="newSong.Tempo" class="form-input" placeholder="120" /></div>
+                </div>
+                <div class="form-group"><label>Lyrics</label><textarea @bind="newSong.Lyrics" class="form-textarea" rows="9" placeholder="Song lyrics..."></textarea></div>
+                <div class="form-group"><label>Notes</label><input @bind="newSong.Notes" class="form-input" placeholder="Any notes..." /></div>
+            }
+        </div>
+
+        <div class="song-modal-actions">
+            @if (isEditModal && UserState.IsAdmin)
+            {
+                <button @onclick="DeleteSong" class="btn-delete" disabled="@isSaving">🗑️ Delete</button>
+            }
+            <button @onclick="CloseSongModal" class="btn-cancel-edit">Cancel</button>
+            <button @onclick="SaveSongFromModal" class="btn-save-song" disabled="@isSaving">
+                @(isSaving ? "Saving..." : "💾 Save")
+            </button>
+        </div>
+    </div>
+}
 
 <!-- ─────────────── STYLES ─────────────── -->
 <style>
@@ -438,7 +465,56 @@
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         background: #f5f6fa;
         overflow: hidden;
+        color: #1e293b;
     }
+
+    .shell.theme-light {
+        background: #f8fafc;
+        color: #1e293b;
+    }
+
+    .shell.theme-dark {
+        background: #0b1220;
+        color: #e2e8f0;
+    }
+
+    .shell.theme-dark .panel-1 { background: #0f172a; border-right-color: #334155; }
+    .shell.theme-dark .panel-2 { background: #111827; border-right-color: #334155; }
+    .shell.theme-dark .panel-3 { background: #0b1220; }
+    .shell.theme-dark .p2-title,
+    .shell.theme-dark .song-row-title,
+    .shell.theme-dark .p3-title,
+    .shell.theme-dark .section-heading,
+    .shell.theme-dark .p3-singer,
+    .shell.theme-dark .notes-body,
+    .shell.theme-dark .lyrics-body,
+    .shell.theme-dark .no-content { color: #e2e8f0; }
+    .shell.theme-dark .song-row { border-bottom-color: #1f2937; }
+    .shell.theme-dark .song-row:hover { background: #1f2937; }
+    .shell.theme-dark .song-row-active { background: #1e3a8a !important; }
+    .shell.theme-dark .p2-search,
+    .shell.theme-dark .p2-filter-select,
+    .shell.theme-dark .form-input,
+    .shell.theme-dark .form-select,
+    .shell.theme-dark .form-textarea,
+    .shell.theme-dark .action-btn,
+    .shell.theme-dark .transpose-bar,
+    .shell.theme-dark .info-chip,
+    .shell.theme-dark .genre-chip,
+    .shell.theme-dark .tag-chip { background: #1f2937; border-color: #334155; color: #e2e8f0; }
+
+    .shell.theme-light .panel-1 {
+        background: #e2e8f0;
+        color: #1e293b;
+        border-right: 1px solid #cbd5e1;
+    }
+    .shell.theme-light .p1-brand { border-bottom-color: #cbd5e1; }
+    .shell.theme-light .brand-name,
+    .shell.theme-light .p1-username { color: #0f172a; }
+    .shell.theme-light .p1-nav-item { color: #334155; }
+    .shell.theme-light .p1-nav-item:hover { background: #cbd5e1; color: #0f172a; }
+    .shell.theme-light .p1-user:hover { background: #cbd5e1; }
+    .shell.theme-dark .shell, .shell.theme-light .shell { background: inherit; }
 
     /* ── Panel 1 ── */
     .panel-1 {
@@ -472,7 +548,7 @@
     }
     .p1-nav-item:hover { background: #334155; color: #f1f5f9; }
     .nav-active { background: #3b82f6 !important; color: white !important; }
-    .nav-icon { font-size: 1rem; width: 20px, flex-shrink: 0; }
+    .nav-icon { font-size: 1rem; width: 20px; flex-shrink: 0; }
     .nav-label { flex: 1; }
     .nav-count {
         background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8);
@@ -568,91 +644,44 @@
     .p2-clear-all { background: none; border: 1px solid #e2e8f0; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: #64748b; }
 
     /* ── Panel 3 ── */
-    .panel-3 { background: #fafbfc; overflow-y: auto; }
-    .p3-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #94a3b8; gap: 12px; }
-    .p3-empty-icon { font-size: 3rem; opacity: 0.4; }
-    .p3-loading { display: flex; justify-content: center; align-items: center; height: 100%; }
-    .p3-content { padding: 20px 28px; max-width: 800px; }
-    .p3-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .p3-back-btn { display: none; background: none; border: none; color: #3b82f6; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-    .p3-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .action-btn {
-        background: white; border: 2px solid #e2e8f0; padding: 7px 14px;
-        border-radius: 8px; cursor: pointer; font-size: 0.82rem; font-weight: 600;
-        color: #475569; transition: all 0.15s; white-space: nowrap;
+    .panel-3 { background: #fafbfc; overflow-y: auto; position: relative; }
+
+    .suggested-overlay {
+        position: absolute; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 20;
     }
-    .action-btn:hover { border-color: #3b82f6; color: #3b82f6; }
-    .action-fav-on { background: #fef2f2; border-color: #ef4444; color: #ef4444 !important; }
-    .action-set-on { background: #f0fdf4; border-color: #22c55e; color: #16a34a !important; }
-    .action-edit { background: #fffbeb; border-color: #f59e0b; color: #d97706; }
-    .action-scroll-on { background: #eff6ff; border-color: #3b82f6; color: #2563eb !important; animation: pulse-scroll 1.5s ease-in-out infinite; }
-    @@keyframes pulse-scroll { 0%,100% { opacity:1; } 50% { opacity:0.65; } }
+    .suggested-drawer {
+        position: absolute; right: 0; top: 0; bottom: 0; width: 320px;
+        background: #fff; border-left: 1px solid #e2e8f0; z-index: 21;
+        display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(15, 23, 42, 0.12);
+        animation: slideIn .18s ease-out;
+    }
+    .shell.theme-dark .suggested-drawer { background: #111827; border-left-color: #334155; }
+    .suggested-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 14px 10px; border-bottom: 1px solid #e2e8f0;
+    }
+    .shell.theme-dark .suggested-header { border-bottom-color: #334155; }
+    .suggested-header h4 { margin: 0; font-size: 0.95rem; }
+    .suggested-close { background: none; border: none; font-size: 1rem; cursor: pointer; color: #64748b; }
+    .suggested-list { padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .suggested-item {
+        text-align: left; border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px;
+        padding: 10px; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+    }
+    .suggested-item:hover { border-color: #3b82f6; background: #eff6ff; }
+    .shell.theme-dark .suggested-item { background: #1f2937; border-color: #374151; color: #e2e8f0; }
+    .shell.theme-dark .suggested-item:hover { border-color: #60a5fa; background: #1e3a8a; }
+    .suggested-title { font-weight: 600; font-size: 0.88rem; }
+    .suggested-meta { font-size: 0.75rem; color: #64748b; }
+    .shell.theme-dark .suggested-meta { color: #94a3b8; }
+    .suggested-empty { padding: 16px; color: #94a3b8; font-size: 0.85rem; }
+    @@keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
 
     /* ── Chord highlighting ── */
-    .chord-line { color: #2563eb; font-weight: 700; font-family: 'Courier New', monospace; letter-spacing: 0.05em; }
-    .inline-chord { color: #2563eb; font-weight: 700; font-size: 0.85em; vertical-align: super; margin: 0 1px; }
-    .transpose-bar {
-        display: flex; align-items: center; gap: 10px; background: white;
-        border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 12px;
-        margin-bottom: 16px; flex-wrap: wrap;
-    }
-    .transpose-label { font-weight: 600; font-size: 0.85rem; color: #475569; }
-    .transpose-btn {
-        background: #3b82f6; color: white; border: none;
-        width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
-        font-size: 1.1rem; font-weight: 700; transition: background 0.15s;
-    }
-    .transpose-btn:hover { background: #2563eb; }
-    .transpose-display { font-weight: 700; color: #0f172a; min-width: 90px; text-align: center; font-size: 0.9rem; }
-    .btn-reset-t { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 5px 12px; border-radius: 8px; cursor: pointer; font-size: 0.82rem; }
 
-    .ext-links { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .link-yt { background: #ef4444; color: white; padding: 7px 14px; border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; }
-    .link-sp { background: #22c55e; color: white; padding: 7px 14px; border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; }
-
-    .section-heading { font-size: 0.9rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 10px; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; }
-    .lyrics-body { white-space: pre-wrap; font-family: 'Georgia', serif; font-size: 1rem; line-height: 2; color: #1e293b; margin: 0; }
-    .notes-body { color: #475569; line-height: 1.6; }
-    .no-content { color: #94a3b8; font-style: italic; }
-    .tags-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 16px 0; }
-    .tags-label { font-size: 0.85rem; color: #94a3b8; }
-    .tag-chip { background: #f1f5f9; color: #475569; padding: 3px 10px; border-radius: 10px; font-size: 0.78rem; }
-
-    /* ── Shared ── */
-    .spinner { width: 36px; height: 36px; border: 4px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.7s linear infinite; }
-    @@keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Edit / Add Forms ── */
-    .edit-form, .add-song-form { padding: 20px 28px; max-width: 700px; }
-    .edit-heading { color: #1e293b; margin: 0 0 16px; font-size: 1.2rem; }
-    .form-group { margin-bottom: 14px; display: flex; flex-direction: column, gap: 5px; }
-    .form-group label { font-size: 0.82rem; font-weight: 600; color: #475569; }
-    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 0; }
-    .form-input, .form-select, .form-textarea {
-        padding: 9px 12px; border: 2px solid #e2e8f0; border-radius: 8px;
-        font-size: 0.9rem; font-family: inherit; transition: border-color 0.15s;
-    }
-    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: #3b82f6; }
-    .form-textarea { resize: vertical; }
-    .form-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.88rem; }
-    .form-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.88rem; }
-    .edit-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
-    .btn-save-song { background: #22c55e; color: white; border: none; padding: 10px 24px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 700; transition: background 0.15s; }
-    .btn-save-song:hover:not(:disabled) { background: #16a34a; }
-    .btn-save-song:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-cancel-edit { background: white; color: #64748b; border: 2px solid #e2e8f0; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
-    .btn-delete { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 600; margin-right: auto; }
-
-    /* ── Tablet (hide Panel 1, show icon rail) ── */
-    @@media (max-width: 1100px) {
-        .shell { grid-template-columns: 56px 300px 1fr; }
-        .brand-name, .nav-label, .nav-count, .p1-user-info, .p1-username, .admin-dot, .nav-section-label { display: none; }
-        .p1-brand { justify-content: center; padding: 16px 0; }
-        .p1-nav-item { justify-content: center; padding: 12px; }
-        .p1-user { justify-content: center; padding: 12px; }
-    }
-
-    /* ── Mobile (single panel stack) ── */
     @@media (max-width: 700px) {
         .shell { grid-template-columns: 1fr; grid-template-rows: 1fr; height: 100dvh; }
         .panel-1, .panel-2, .panel-3 { grid-column: 1; grid-row: 1; }
@@ -660,10 +689,134 @@
         .mobile-hide { display: none !important; }
         .p2-back-btn { display: block; }
         .p3-back-btn { display: block; }
+        .suggested-drawer { width: 100%; }
+
+        .song-modal-container {
+            width: 100vw;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            left: 0;
+            top: 0;
+            transform: none;
+        }
     }
-    @@media (min-width: 701px) {
-        .mobile-show, .mobile-hide { display: contents; }
-        .panel-1, .panel-2, .panel-3 { display: flex; flex-direction: column; }
+
+    /* ── Song modals ── */
+    .song-modal-overlay {
+        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 100;
+    }
+    .song-modal-container {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        z-index: 101;
+        max-width: 90%; width: 480px;
+        display: flex; flex-direction: column;
+    }
+    .song-modal-header {
+        padding: 16px; border-bottom: 1px solid #e2e8f0;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .song-modal-header h3 {
+        margin: 0; font-size: 1.1rem; font-weight: 700;
+        color: #111827;
+    }
+    .song-modal-close {
+        background: none; border: none;
+        font-size: 1.2rem; cursor: pointer;
+        color: #64748b;
+    }
+    .song-modal-body {
+        padding: 16px; flex: 1;
+        display: flex; flex-direction: column;
+        gap: 12px;
+    }
+    .song-modal-actions {
+        padding: 16px;
+        display: flex; justify-content: flex-end;
+        gap: 8px;
+        border-top: 1px solid #e2e8f0;
+    }
+    .btn-cancel-edit {
+        background: #f1f5f9; color: #111;
+        padding: 10px 16px; border-radius: 6px;
+        cursor: pointer; transition: background 0.15s;
+        font-size: 0.9rem;
+    }
+    .btn-cancel-edit:hover {
+        background: #e2e8f0;
+    }
+    .btn-delete {
+        background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-size: 0.9rem; font-weight: 600; margin-right: auto;
+    }
+    .btn-delete:hover {
+        background: #fee2e2;
+    }
+    .btn-save-song {
+        background: #3b82f6; color: white;
+        padding: 10px 16px; border-radius: 6px;
+        cursor: pointer; transition: background 0.15s;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+    .btn-save-song:disabled {
+        background: #e2e8f0; color: #64748b;
+        cursor: not-allowed;
+    }
+    .form-group {
+        display: flex; flex-direction: column;
+        gap: 4px;
+    }
+    .form-label {
+        font-size: 0.85rem; font-weight: 500;
+        color: #344054;
+    }
+    .form-input, .form-select, .form-textarea {
+        padding: 10px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+        border-color: #3b82f6;
+    }
+    .form-input {
+        height: 38px;
+    }
+    .form-select {
+        height: 38px;
+        background: white;
+        cursor: pointer;
+    }
+    .form-textarea {
+        resize: none;
+    }
+    .form-error {
+        background: #fee2e2; color: #ef4444;
+        padding: 8px 12px;
+        border-left: 4px solid #ef4444;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+    .form-success {
+        background: #ecfdf3; color: #6eccaf;
+        padding: 8px 12px;
+        border-left: 4px solid #6eccaf;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+
+    /* ── Misc ── */
+    .skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 400%;
+        animation: loading 1.2s infinite;
+    }
+    @@keyframes loading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
     }
 </style>
 
@@ -701,8 +854,31 @@
     private bool isAutoScrolling = false;
     private System.Threading.CancellationTokenSource? _scrollCts;
 
+    // ── App Theme + Suggestions ──
+    private string appThemeMode = "auto"; // auto | light | dark
+    private bool suggestedDrawerOpen = false;
+    private List<SongItem> suggestedSongs = new();
+
+    // Persisted preference keys
+    private const string PrefThemeKey = "oldnew:shell:theme";
+    private const string PrefFontSizeKey = "oldnew:shell:fontSize";
+    private const string PrefCategoryTabKey = "oldnew:shell:categoryTab";
+
+    private string AppThemeLabel => appThemeMode switch
+    {
+        "light" => "Light",
+        "dark" => "Dark",
+        _ => "Auto"
+    };
+
+    private string AppThemeClass => appThemeMode switch
+    {
+        "light" => "theme-light",
+        "dark" => "theme-dark",
+        _ => "theme-light"
+    };
+
     // ── Edit mode ──
-    private bool isEditing = false;
     private SongFormModel editSong = new();
     private string editGenresText = "";
     private bool isSaving = false;
@@ -711,6 +887,10 @@
 
     // ── Add mode ──
     private SongFormModel newSong = new();
+
+    // Modal state
+    private bool showSongModal = false;
+    private bool isEditModal = false;
 
     private static readonly string[] MusicKeys =
         { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B",
@@ -731,7 +911,6 @@
         "favorites"  => "❤️ Favorites",
         "new"        => "✨ New Setlist",
         "old"        => "🕰️ Old Setlist",
-        "add"        => "➕ Add Song",
         _            => "🎵 All Songs"
     };
 
@@ -755,6 +934,8 @@
     // ── Lifecycle ──
     protected override async Task OnInitializedAsync()
     {
+        await LoadShellPreferencesAsync();
+
         await LoadAllSongs();
         if (UserState.IsLoggedIn) await LoadUserData();
 
@@ -767,6 +948,38 @@
         {
             mobilePanelIndex = 0;
         }
+    }
+
+    private async Task LoadShellPreferencesAsync()
+    {
+        try
+        {
+            var theme = await GetPreferenceAsync(PrefThemeKey);
+            if (!string.IsNullOrWhiteSpace(theme) && (theme == "auto" || theme == "light" || theme == "dark"))
+                appThemeMode = theme;
+
+            var fontRaw = await GetPreferenceAsync(PrefFontSizeKey);
+            if (int.TryParse(fontRaw, out var font))
+                lyricsFontSize = Math.Clamp(font, 10, 32);
+
+            var tab = await GetPreferenceAsync(PrefCategoryTabKey);
+            if (tab is "New" or "Old" or "")
+                categoryTab = tab;
+        }
+        catch { }
+    }
+
+    private async Task<string?> GetPreferenceAsync(string key)
+    {
+        var keyJson = JsonSerializer.Serialize(key);
+        return await JS.InvokeAsync<string?>("eval", $"localStorage.getItem({keyJson})");
+    }
+
+    private async Task SavePreferenceAsync(string key, string value)
+    {
+        var keyJson = JsonSerializer.Serialize(key);
+        var valueJson = JsonSerializer.Serialize(value);
+        await JS.InvokeVoidAsync("eval", $"localStorage.setItem({keyJson}, {valueJson})");
     }
 
     private async Task LoadAllSongs()
@@ -798,7 +1011,8 @@
         selectedSong = null;
         selectedSongId = null;
         transposeSteps = 0;
-        isEditing = false;
+        suggestedDrawerOpen = false;
+        suggestedSongs = new();
         saveError = null;
         saveSuccess = false;
         newSong = new();
@@ -815,7 +1029,6 @@
         if (selectedSongId == id) return;
         selectedSongId = id;
         transposeSteps = 0;
-        isEditing = false;
         saveError = null;
         saveSuccess = false;
         isDetailLoading = true;
@@ -830,6 +1043,7 @@
                 inNewSetlist = userData.NewSetlist.Contains(id);
                 inOldSetlist = userData.OldSetlist.Contains(id);
             }
+            RefreshSuggestedSongs();
         }
         catch { selectedSong = null; }
         finally { isDetailLoading = false; }
@@ -866,9 +1080,71 @@
         displayedSongs = result.ToList();
     }
 
-    private void SetCategoryTab(string tab) { categoryTab = tab; ApplyFilters(); }
+    private void SetCategoryTab(string tab)
+    {
+        categoryTab = tab;
+        _ = SavePreferenceAsync(PrefCategoryTabKey, tab);
+        ApplyFilters();
+    }
+
     private void OnKeyChanged(ChangeEventArgs e) { filterKey = e.Value?.ToString() ?? ""; ApplyFilters(); }
     private void ClearFilters() { filterKey = ""; searchText = ""; ApplyFilters(); }
+
+    // ── Theme + Suggestions ──
+    private void ToggleAppThemeMode()
+    {
+        appThemeMode = appThemeMode switch
+        {
+            "auto" => "dark",
+            "dark" => "light",
+            _ => "auto"
+        };
+
+        _ = SavePreferenceAsync(PrefThemeKey, appThemeMode);
+    }
+
+    private void RefreshSuggestedSongs()
+    {
+        if (selectedSong is null)
+        {
+            suggestedSongs = new();
+            return;
+        }
+
+        var pool = allSongs.Where(s => s.Id != selectedSong.Id).ToList();
+        var sameCategory = pool.Where(s => s.Category == selectedSong.Category).ToList();
+        var keyMatch = sameCategory.Where(s => s.Key == selectedSong.Key).ToList();
+        var others = sameCategory.Where(s => s.Key != selectedSong.Key).ToList();
+
+        suggestedSongs = keyMatch
+            .Concat(others.OrderBy(_ => Guid.NewGuid()))
+            .Take(12)
+            .ToList();
+
+        if (suggestedSongs.Count < 6)
+        {
+            var extras = pool
+                .Where(s => !suggestedSongs.Any(x => x.Id == s.Id))
+                .OrderBy(_ => Guid.NewGuid())
+                .Take(6 - suggestedSongs.Count);
+            suggestedSongs.AddRange(extras);
+        }
+    }
+
+    private void ToggleSuggestedDrawer()
+    {
+        if (selectedSong is null) return;
+        if (!suggestedDrawerOpen) RefreshSuggestedSongs();
+        suggestedDrawerOpen = !suggestedDrawerOpen;
+    }
+
+    private void CloseSuggestedDrawer() => suggestedDrawerOpen = false;
+
+    private async Task SelectSuggestedSong(int id)
+    {
+        suggestedDrawerOpen = false;
+        await SelectSong(id);
+    }
 
     // ── Transpose ──
     private void TransposeUp() => transposeSteps++;
@@ -876,8 +1152,17 @@
     private void ResetTranspose() => transposeSteps = 0;
 
     // ── Font Size ──
-    private void IncreaseFontSize() => lyricsFontSize = Math.Min(lyricsFontSize + 2, 32);
-    private void DecreaseFontSize() => lyricsFontSize = Math.Max(lyricsFontSize - 2, 10);
+    private void IncreaseFontSize()
+    {
+        lyricsFontSize = Math.Min(lyricsFontSize + 2, 32);
+        _ = SavePreferenceAsync(PrefFontSizeKey, lyricsFontSize.ToString());
+    }
+
+    private void DecreaseFontSize()
+    {
+        lyricsFontSize = Math.Max(lyricsFontSize - 2, 10);
+        _ = SavePreferenceAsync(PrefFontSizeKey, lyricsFontSize.ToString());
+    }
 
     // ── Auto Scroll ──
     private void ToggleAutoScroll()
@@ -939,26 +1224,7 @@
         ApplyFilters();
     }
 
-    // ── Edit ──
-    private void ToggleEditMode()
-    {
-        isEditing = !isEditing;
-        saveError = null;
-        saveSuccess = false;
-        if (isEditing && selectedSong is not null)
-        {
-            editSong = new SongFormModel
-            {
-                Title = selectedSong.Title, Category = selectedSong.Category,
-                Key = selectedSong.Key, Tempo = selectedSong.Tempo,
-                Time = selectedSong.Time, Taal = selectedSong.Taal,
-                Singer = selectedSong.Singer, Mood = selectedSong.Mood,
-                Lyrics = selectedSong.Lyrics, Notes = selectedSong.Notes,
-                YoutubeLink = selectedSong.YoutubeLink, SpotifyLink = selectedSong.SpotifyLink
-            };
-            editGenresText = string.Join(", ", selectedSong.Genres ?? new());
-        }
-    }
+    // ── Edit / Save ──
 
     private async Task SaveEditedSong()
     {
@@ -970,7 +1236,7 @@
         {
             var dto = new { selectedSong!.Id, editSong.Title, editSong.Category, editSong.Key, editSong.Tempo, editSong.Time, editSong.Taal, editSong.Genres, editSong.Lyrics, editSong.Singer, editSong.Mood, editSong.Notes, editSong.YoutubeLink, editSong.SpotifyLink, IsPublic = true };
             var resp = await Http.PutAsJsonAsync($"api/songs/{selectedSong.Id}", dto);
-            if (resp.IsSuccessStatusCode) { saveSuccess = true; isEditing = false; await SelectSong(selectedSong.Id); await LoadAllSongs(); }
+            if (resp.IsSuccessStatusCode) { saveSuccess = true; await SelectSong(selectedSong.Id); await LoadAllSongs(); }
             else saveError = $"Save failed ({resp.StatusCode}).";
         }
         catch (Exception ex) { saveError = ex.Message; }
@@ -1112,14 +1378,69 @@
     private void MobileGoToPanel1() { mobilePanelIndex = 0; }
     private void MobileGoToPanel2() { mobilePanelIndex = 1; }
 
-    // ── Models ──
-    private record SongItem(int Id, string Title, string Category, string Key,
-        List<string> Genres, string? Singer, string? Mood);
+    private void OpenAddModal()
+    {
+        newSong = new();
+        isEditModal = false;
+        showSongModal = true;
+        saveError = null;
+        saveSuccess = false;
+    }
 
-    private record SongDetail(int Id, string Title, string Category, string Key,
-        string Tempo, string Time, string Taal, List<string> Genres, string Lyrics,
-        string? Singer, string? Mood, List<string>? Tags, string? YoutubeLink,
-        string? SpotifyLink, string? Notes, bool IsPublic, int ViewCount,
+    private void OpenEditModal()
+    {
+        if (selectedSong != null)
+        {
+            editSong = new SongFormModel
+            {
+                Title = selectedSong.Title,
+                Category = selectedSong.Category,
+                Key = selectedSong.Key,
+                Tempo = selectedSong.Tempo,
+                Time = selectedSong.Time,
+                Taal = selectedSong.Taal,
+                Singer = selectedSong.Singer,
+                Mood = selectedSong.Mood,
+                Lyrics = selectedSong.Lyrics,
+                Notes = selectedSong.Notes,
+                YoutubeLink = selectedSong.YoutubeLink,
+                SpotifyLink = selectedSong.SpotifyLink
+            };
+            editGenresText = string.Join(", ", selectedSong.Genres ?? new());
+
+            isEditModal = true;
+            showSongModal = true;
+            saveError = null;
+            saveSuccess = false;
+        }
+    }
+
+    private void CloseSongModal()
+    {
+        showSongModal = false;
+        saveError = null;
+        saveSuccess = false;
+    }
+
+    private async Task SaveSongFromModal()
+    {
+        if (isEditModal) await SaveEditedSong();
+        else await SaveNewSong();
+
+        if (string.IsNullOrEmpty(saveError))
+        {
+            CloseSongModal();
+        }
+    }
+
+    // ── Models ──
+    private record SongItem(int Id, String Title, String Category, String Key,
+        List<String> Genres, String? Singer, String? Mood);
+
+    private record SongDetail(int Id, String Title, String Category, String Key,
+        String Tempo, String Time, String Taal, List<String> Genres, String Lyrics,
+        String? Singer, String? Mood, List<String>? Tags, String? YoutubeLink,
+        String? SpotifyLink, String? Notes, bool IsPublic, int ViewCount,
         DateTime CreatedAt, DateTime? UpdatedAt);
 
     private class UserDataState
@@ -1146,3 +1467,4 @@
         public string? SpotifyLink { get; set; }
     }
 }
+
