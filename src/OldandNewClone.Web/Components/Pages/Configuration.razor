@@ -1,0 +1,196 @@
+@page "/configuration"
+@rendermode InteractiveServer
+@inject OldandNewClone.Infrastructure.Persistence.MongoContext MongoContext
+@inject ILogger<Configuration> Logger
+
+<PageTitle>Configuration Status</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">🔧 Configuration Status</h1>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>📦 MongoDB Connection</h5>
+                </div>
+                <div class="card-body">
+                    @if (isLoadingDb)
+                    {
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    }
+                    else if (dbHealth != null)
+                    {
+                        <div class="alert @(dbHealth.Status == "Connected" ? "alert-success" : "alert-danger")">
+                            <strong>Status:</strong> @dbHealth.Status
+                        </div>
+                        <p><strong>Database:</strong> @dbHealth.Database</p>
+                        <p><strong>Last Checked:</strong> @dbHealth.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</p>
+                    }
+                    else if (!string.IsNullOrEmpty(dbError))
+                    {
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> @dbError
+                        </div>
+                    }
+                    <button class="btn btn-primary mt-2" @onclick="CheckDatabaseHealth" disabled="@isLoadingDb">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>📚 Collections</h5>
+                </div>
+                <div class="card-body">
+                    @if (isLoadingCollections)
+                    {
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    }
+                    else if (collections != null && collections.Collections.Any())
+                    {
+                        <p><strong>Database:</strong> @collections.Database</p>
+                        <p><strong>Total Collections:</strong> @collections.Count</p>
+                        <ul class="list-group">
+                            @foreach (var collection in collections.Collections)
+                            {
+                                <li class="list-group-item">@collection</li>
+                            }
+                        </ul>
+                    }
+                    else if (!string.IsNullOrEmpty(collectionsError))
+                    {
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> @collectionsError
+                        </div>
+                    }
+                    <button class="btn btn-primary mt-2" @onclick="LoadCollections" disabled="@isLoadingCollections">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>ℹ️ Environment Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Framework:</strong> .NET 10</p>
+                    <p><strong>Platform:</strong> Blazor Server</p>
+                    <p><strong>Configuration:</strong> Development</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DatabaseHealth? dbHealth;
+    private CollectionsInfo? collections;
+    private bool isLoadingDb = false;
+    private bool isLoadingCollections = false;
+    private string? dbError;
+    private string? collectionsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckDatabaseHealth();
+        await LoadCollections();
+    }
+
+    private async Task CheckDatabaseHealth()
+    {
+        isLoadingDb = true;
+        dbError = null;
+        StateHasChanged();
+
+        try
+        {
+            var ping = await MongoContext.Database.RunCommandAsync<MongoDB.Bson.BsonDocument>(
+                new MongoDB.Bson.BsonDocument { { "ping", 1 } });
+
+            dbHealth = new DatabaseHealth
+            {
+                Status = "Connected",
+                Database = MongoContext.Database.DatabaseNamespace.DatabaseName,
+                Timestamp = DateTime.UtcNow
+            };
+        }
+        catch (Exception ex)
+        {
+            dbError = ex.Message;
+            Logger.LogError(ex, "Failed to check database health");
+            dbHealth = new DatabaseHealth
+            {
+                Status = "Disconnected",
+                Database = "N/A",
+                Timestamp = DateTime.UtcNow
+            };
+        }
+        finally
+        {
+            isLoadingDb = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCollections()
+    {
+        isLoadingCollections = true;
+        collectionsError = null;
+        StateHasChanged();
+
+        try
+        {
+            using var collectionsCursor = await MongoContext.Database.ListCollectionNamesAsync();
+            var collectionList = new List<string>();
+
+            while (await collectionsCursor.MoveNextAsync())
+            {
+                collectionList.AddRange(collectionsCursor.Current);
+            }
+
+            collections = new CollectionsInfo
+            {
+                Database = MongoContext.Database.DatabaseNamespace.DatabaseName,
+                Collections = collectionList,
+                Count = collectionList.Count
+            };
+        }
+        catch (Exception ex)
+        {
+            collectionsError = ex.Message;
+            Logger.LogError(ex, "Failed to load collections");
+        }
+        finally
+        {
+            isLoadingCollections = false;
+            StateHasChanged();
+        }
+    }
+
+    private class DatabaseHealth
+    {
+        public string Status { get; set; } = string.Empty;
+        public string Database { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class CollectionsInfo
+    {
+        public string Database { get; set; } = string.Empty;
+        public List<string> Collections { get; set; } = new();
+        public int Count { get; set; }
+    }
+}

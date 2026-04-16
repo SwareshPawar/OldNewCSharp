@@ -12,6 +12,7 @@ public static class DependencyInjection
         services.AddScoped<ISongService, SongService>();
         services.AddScoped<IUserDataService, UserDataService>();
         services.AddScoped<ITransposeService, TransposeService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }

@@ -1,0 +1,369 @@
+@page "/debug/users"
+@rendermode InteractiveServer
+@inject NavigationManager NavigationManager
+@inject ILogger<DebugUsers> Logger
+@using System.Net.Http.Json
+@using System.Text.Json
+
+<PageTitle>Debug Users</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">🔧 Debug User Accounts</h1>
+
+    <div class="alert alert-warning">
+        <strong>⚠️ Development Only:</strong> This page is for debugging authentication issues.
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info alert-dismissible fade show">
+            @message
+            <button type="button" class="btn-close" @onclick="@(() => message = null)"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            @errorMessage
+            @if (errorMessage.Contains("Incompatible user format"))
+            {
+                <hr />
+                <a href="/migration" class="btn btn-danger btn-sm mt-2">
+                    🔧 Go to Migration Page to Fix
+                </a>
+            }
+            <button type="button" class="btn-close" @onclick="@(() => errorMessage = null)"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>📋 Existing Users</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary mb-3" @onclick="LoadUsers" disabled="@isLoading">
+                        🔄 Refresh Users
+                    </button>
+
+                    @if (isLoading)
+                    {
+                        <div class="spinner-border text-primary"></div>
+                    }
+                    else if (users != null && users.Any())
+                    {
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Username</th>
+                                    <th>Type</th>
+                                    <th>Hash</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in users)
+                                {
+                                    <tr>
+                                        <td>@user.Email</td>
+                                        <td>@user.UserName</td>
+                                        <td>
+                                            @if (user.IsNodeJsUser)
+                                            {
+                                                <span class="badge bg-info">Node.js</span>
+                                            }
+                                            else if (user.IsDotNetUser)
+                                            {
+                                                <span class="badge bg-primary">.NET</span>
+                                            }
+                                            @if (user.HasPassword && user.HasPasswordHash)
+                                            {
+                                                <span class="badge bg-success">Hybrid ✓</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (user.IsBcryptHash)
+                                            {
+                                                <span class="badge bg-success">BCrypt ✓</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-warning">Unknown</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteUser(user.Email!)">
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No users found</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>🔐 Rehash Password (BCrypt)</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">If you have an old user, rehash their password to use BCrypt</p>
+                    <EditForm Model="@rehashModel" OnValidSubmit="@RehashPassword">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText @bind-Value="rehashModel.Email" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <InputText type="password" @bind-Value="rehashModel.NewPassword" class="form-control" />
+                        </div>
+                        <button type="submit" class="btn btn-warning" disabled="@isLoading">
+                            Rehash Password
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5>🧪 Test Password</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Test if a password matches the stored hash</p>
+                    <EditForm Model="@testModel" OnValidSubmit="@TestPassword">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <InputText @bind-Value="testModel.Email" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <InputText type="password" @bind-Value="testModel.Password" class="form-control" />
+                        </div>
+                        <button type="submit" class="btn btn-info" disabled="@isLoading">
+                            Test Password
+                        </button>
+                    </EditForm>
+
+                    @if (testResult != null)
+                    {
+                        <div class="mt-3 alert @(testResult.PasswordMatch ? "alert-success" : "alert-danger")">
+                            <strong>Result:</strong> @(testResult.PasswordMatch ? "✓ Password Matches!" : "✗ Password Does Not Match")
+                            <br />
+                            <small>Hash Format: @(testResult.IsBcryptHash ? "BCrypt" : "Old Format")</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<UserInfo>? users;
+    private bool isLoading = false;
+    private string? message;
+    private string? errorMessage;
+    private RehashModel rehashModel = new();
+    private TestModel testModel = new();
+    private TestResult? testResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var httpClient = new HttpClient { BaseAddress = new Uri(NavigationManager.BaseUri) };
+            var response = await httpClient.GetAsync("/api/debug/users");
+
+            if (response.IsSuccessStatusCode)
+            {
+                users = await response.Content.ReadFromJsonAsync<List<UserInfo>>();
+
+                // Check for BCrypt format
+                if (users != null)
+                {
+                    foreach (var user in users)
+                    {
+                        user.IsBcryptHash = user.PasswordHashFormat?.StartsWith("$2") ?? false;
+                    }
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                if (errorContent.Contains("Incompatible user format"))
+                {
+                    errorMessage = "⚠️ Incompatible user format detected! Users have ObjectId format IDs. Please go to the Migration page and clear all users.";
+                }
+                else
+                {
+                    errorMessage = $"Error loading users: {response.StatusCode}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading users: {ex.Message}";
+            Logger.LogError(ex, "Failed to load users");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteUser(string email)
+    {
+        isLoading = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var httpClient = new HttpClient { BaseAddress = new Uri(NavigationManager.BaseUri) };
+            var response = await httpClient.DeleteAsync($"/api/debug/user/{Uri.EscapeDataString(email)}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                message = $"User {email} deleted successfully!";
+                await LoadUsers();
+            }
+            else
+            {
+                errorMessage = "Failed to delete user";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Logger.LogError(ex, "Failed to delete user");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RehashPassword()
+    {
+        isLoading = true;
+        errorMessage = null;
+        testResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var httpClient = new HttpClient { BaseAddress = new Uri(NavigationManager.BaseUri) };
+            var response = await httpClient.PostAsJsonAsync("/api/debug/rehash-password", rehashModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                message = $"Password rehashed successfully for {rehashModel.Email}!";
+                rehashModel = new();
+                await LoadUsers();
+            }
+            else
+            {
+                errorMessage = "Failed to rehash password";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Logger.LogError(ex, "Failed to rehash password");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task TestPassword()
+    {
+        isLoading = true;
+        errorMessage = null;
+        testResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var httpClient = new HttpClient { BaseAddress = new Uri(NavigationManager.BaseUri) };
+            var response = await httpClient.PostAsJsonAsync("/api/debug/test-password", testModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                testResult = await response.Content.ReadFromJsonAsync<TestResult>();
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+            Logger.LogError(ex, "Failed to test password");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private class UserInfo
+    {
+        public string? Id { get; set; }
+        public string? Email { get; set; }
+        public string? UserName { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public bool HasPassword { get; set; }
+        public bool HasPasswordHash { get; set; }
+        public string? PasswordHashFormat { get; set; }
+        public bool IsBcryptHash { get; set; }
+        public bool IsNodeJsUser { get; set; }
+        public bool IsDotNetUser { get; set; }
+    }
+
+    private class RehashModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+    private class TestModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+
+    private class TestResult
+    {
+        public bool PasswordMatch { get; set; }
+        public string? Result { get; set; }
+        public bool IsBcryptHash { get; set; }
+    }
+}

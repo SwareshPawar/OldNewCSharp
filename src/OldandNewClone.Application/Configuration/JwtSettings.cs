@@ -1,4 +1,4 @@
-namespace OldandNewClone.Infrastructure.Configuration;
+namespace OldandNewClone.Application.Configuration;
 
 public class JwtSettings
 {

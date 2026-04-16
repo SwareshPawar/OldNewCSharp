@@ -47,12 +47,12 @@ public class DatabaseController : ControllerBase
     {
         try
         {
-            var collections = await _context.Database.ListCollectionNamesAsync();
+            using var collections = await _context.Database.ListCollectionNamesAsync();
             var collectionList = new List<string>();
 
-            await foreach (var collection in collections.ToEnumerable())
+            while (await collections.MoveNextAsync())
             {
-                collectionList.Add(collection);
+                collectionList.AddRange(collections.Current);
             }
 
             return Ok(new 
