@@ -82,6 +82,39 @@ public class SetlistService : ISetlistService
         return updated is null ? null : Map(updated);
     }
 
+    public async Task<SetlistDto?> AddSongAsync(string userId, bool isAdmin, string id, int songId)
+    {
+        var existing = await _setlistRepository.GetByIdAsync(id);
+        if (existing is null)
+            return null;
+
+        EnsureCanManuallyEditSongs(existing, userId, isAdmin);
+
+        if (!existing.SongIds.Contains(songId))
+        {
+            existing.SongsRaw.Add(songId);
+            existing.UpdatedAtRaw = DateTime.UtcNow;
+        }
+
+        var updated = await _setlistRepository.UpdateAsync(existing);
+        return updated is null ? null : Map(updated);
+    }
+
+    public async Task<SetlistDto?> RemoveSongAsync(string userId, bool isAdmin, string id, int songId)
+    {
+        var existing = await _setlistRepository.GetByIdAsync(id);
+        if (existing is null)
+            return null;
+
+        EnsureCanManuallyEditSongs(existing, userId, isAdmin);
+
+        existing.SongsRaw = existing.SongsRaw.Where(value => !MatchesSongId(value, songId)).ToList();
+        existing.UpdatedAtRaw = DateTime.UtcNow;
+
+        var updated = await _setlistRepository.UpdateAsync(existing);
+        return updated is null ? null : Map(updated);
+    }
+
     public async Task<bool> DeleteAsync(string userId, bool isAdmin, string id)
     {
         var existing = await _setlistRepository.GetByIdAsync(id);
@@ -103,6 +136,37 @@ public class SetlistService : ISetlistService
         }
 
         return await _setlistRepository.DeleteAsync(id);
+    }
+
+    private static void EnsureCanManuallyEditSongs(Setlist existing, string userId, bool isAdmin)
+    {
+        if (existing.Type == SetlistTypes.Smart)
+            throw new InvalidOperationException("Smart setlists are automated and do not support manual add/remove.");
+
+        if (existing.Type == SetlistTypes.Global)
+        {
+            if (!isAdmin)
+                throw new UnauthorizedAccessException("Only administrators can modify global setlists.");
+            return;
+        }
+
+        if (existing.Type == SetlistTypes.My && existing.UserId != userId)
+            throw new UnauthorizedAccessException("You can only modify your own setlists.");
+    }
+
+    private static bool MatchesSongId(BsonValue value, int songId)
+    {
+        if (value.IsInt32) return value.AsInt32 == songId;
+        if (value.IsInt64) return value.AsInt64 == songId;
+        if (value.IsString && int.TryParse(value.AsString, out var parsed)) return parsed == songId;
+        if (value.IsBsonDocument && value.AsBsonDocument.TryGetValue("id", out var idValue))
+        {
+            if (idValue.IsInt32) return idValue.AsInt32 == songId;
+            if (idValue.IsInt64) return idValue.AsInt64 == songId;
+            if (idValue.IsString && int.TryParse(idValue.AsString, out var docParsed)) return docParsed == songId;
+        }
+
+        return false;
     }
 
     private static SetlistDto Map(Setlist setlist) => new(

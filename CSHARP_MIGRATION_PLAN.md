@@ -713,7 +713,7 @@ The original app supports first-class setlists including:
 
 ### Migration Decision
 The old dedicated `/setlist` page was removed because it represented the wrong model.
-Setlists will now be migrated as first-class entities and later integrated into the Teams-style shell.
+Setlists will now be migrated as first-class entities and integrated into the Teams-style shell.
 
 ### Backend Foundation Completed
 - ✅ Added `Setlist` domain entity
@@ -723,17 +723,30 @@ Setlists will now be migrated as first-class entities and later integrated into 
 - ✅ Added `SetlistService`
 - ✅ Added `SetlistsController`
 - ✅ Wired DI registrations
-- ✅ Added MongoDB `Setlists` collection access
+- ✅ Aligned reader to original MongoDB setlist collections
 - ✅ Removed obsolete Web and MAUI `Setlist.razor` pages
 - ✅ Removed obsolete nav links pointing to fixed-bucket setlists
 
-### Next Implementation Steps
-- ⏳ Add Shell UI for Global / My / Smart setlists
-- ⏳ Add create/edit/delete dialogs for setlists
-- ⏳ Add add/remove song to specific setlist
-- ⏳ Add New/Old grouping within setlist detail view
-- ⏳ Keep Favorites separate from setlists
-- ⏳ De-emphasize legacy `NewSetlist` / `OldSetlist` storage after migration path is complete
+### Setlist Migration Checklist
+- [x] Read existing Global / My / Smart setlists from the real database schema
+- [x] Render Panel 1 setlist folders
+- [x] Render child setlists under each folder
+- [x] Select a child setlist from Panel 1
+- [x] Show selected setlist songs in Panel 2
+- [x] Show selected setlist overview in Panel 3
+- [x] Group selected setlist songs into New / Old in Panel 3
+- [x] Make all Panel 2 dependencies react correctly to selected setlist context
+- [ ] Add create/edit/delete dialogs for setlists (Global/My first; Smart separate)
+- [x] Add add/remove song to a specific setlist (Global/My only)
+- [ ] Add setlist persistence/restoration for selected child setlist
+- [ ] De-emphasize legacy `NewSetlist` / `OldSetlist` storage after migration path is complete
+- [ ] Mirror setlist shell behavior in MAUI shell
+
+### Smart Setlist Rule
+Smart setlists use an **automated mechanism** and do **not** support manual add/remove like Global and My setlists.
+Smart setlists also keep their own separate create/edit experience driven by automation/conditions, so the current CRUD dialogs apply first to:
+- **Global Setlists**
+- **My Setlists**
 
 ---
 
@@ -767,13 +780,15 @@ Structure:
 
 ### Implementation Rule
 - `Global Setlists`, `My Setlists`, and `Smart Setlists` are not leaf items
-- They are expandable/collapsible containers
+- They are expandable/collapsibile containers
 - The actual setlist documents loaded from MongoDB are rendered beneath them
 - This mirrors the original application more closely than the earlier fixed-bucket model
 
 ### Status
 - ✅ Requirement documented
 - ✅ Reader aligned to original MongoDB setlist collections
-- ⏳ Panel 1 nested folder rendering
-- ⏳ Setlist selection behavior
-- ⏳ Panel 2 / Panel 3 integration for selected setlist
+- ✅ Panel 1 nested folder rendering
+- ✅ Setlist selection behavior
+- ⏳ Panel 2 dependency alignment for selected setlist
+- ✅ Panel 3 integration for selected setlist
+- ✅ Panel 3 New/Old grouping for selected setlist

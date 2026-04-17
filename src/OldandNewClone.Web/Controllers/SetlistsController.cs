@@ -48,6 +48,34 @@ public class SetlistsController : ControllerBase
         return updated is null ? NotFound() : Ok(updated);
     }
 
+    [HttpPost("{id}/songs/{songId}")]
+    public async Task<IActionResult> AddSong(string id, int songId)
+    {
+        try
+        {
+            var updated = await _setlistService.AddSongAsync(GetUserId(), User.IsInRole("Admin"), id, songId);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}/songs/{songId}")]
+    public async Task<IActionResult> RemoveSong(string id, int songId)
+    {
+        try
+        {
+            var updated = await _setlistService.RemoveSongAsync(GetUserId(), User.IsInRole("Admin"), id, songId);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
