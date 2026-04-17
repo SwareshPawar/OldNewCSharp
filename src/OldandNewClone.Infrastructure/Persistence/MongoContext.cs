@@ -23,5 +23,14 @@ public class MongoContext
     public IMongoCollection<UserData> UserData => 
         _database.GetCollection<UserData>(_settings.UserDataCollectionName);
 
+    public IMongoCollection<Setlist> GlobalSetlists =>
+        _database.GetCollection<Setlist>("GlobalSetlists");
+
+    public IMongoCollection<Setlist> MySetlists =>
+        _database.GetCollection<Setlist>("MySetlists");
+
+    public IMongoCollection<Setlist> SmartSetlists =>
+        _database.GetCollection<Setlist>("SmartSetlists");
+
     public IMongoDatabase Database => _database;
 }

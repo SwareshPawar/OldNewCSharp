@@ -11,6 +11,7 @@ public static class DependencyInjection
         // Application Services
         services.AddScoped<ISongService, SongService>();
         services.AddScoped<IUserDataService, UserDataService>();
+        services.AddScoped<ISetlistService, SetlistService>();
         services.AddScoped<ITransposeService, TransposeService>();
         services.AddScoped<IAuthService, AuthService>();
 

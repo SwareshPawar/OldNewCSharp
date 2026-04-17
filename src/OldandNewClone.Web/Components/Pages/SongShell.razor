@@ -44,20 +44,65 @@
 
             <div class="nav-section-label">SETLISTS</div>
 
-            <button class="p1-nav-item @(activeSection == "new" ? "nav-active" : "")"
-                    @onclick='() => SelectSection("new")'>
-                <span class="nav-icon">✨</span>
-                <span class="nav-label">New Setlist</span>
-                <span class="nav-count">@userData.NewSetlist.Count</span>
-            </button>
+            @if (UserState.IsLoggedIn)
+            {
+                <button class="p1-nav-item @(activeSection == "setlists-global" ? "nav-active" : "")"
+                        @onclick='() => ToggleSetlistFolder("setlists-global")'>
+                    <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-global") ? "📂" : "📁")</span>
+                    <span class="nav-label">Global Setlists</span>
+                    <span class="nav-count">@globalSetlists.Count</span>
+                </button>
+                @if (expandedSetlistFolders.Contains("setlists-global"))
+                {
+                    foreach (var item in globalSetlists)
+                    {
+                        <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
+                                @onclick='() => SelectSetlistFolderItem("setlists-global", item.Id)'>
+                            <span class="nav-icon">📄</span>
+                            <span class="nav-label">@item.Name</span>
+                            <span class="nav-count">@item.SongCount</span>
+                        </button>
+                    }
+                }
 
-            <button class="p1-nav-item @(activeSection == "old" ? "nav-active" : "")"
-                    @onclick='() => SelectSection("old")'
-                    >
-                <span class="nav-icon">🕰️</span>
-                <span class="nav-label">Old Setlist</span>
-                <span class="nav-count">@userData.OldSetlist.Count</span>
-            </button>
+                <button class="p1-nav-item @(activeSection == "setlists-my" ? "nav-active" : "")"
+                        @onclick='() => ToggleSetlistFolder("setlists-my")'>
+                    <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-my") ? "📂" : "📁")</span>
+                    <span class="nav-label">My Setlists</span>
+                    <span class="nav-count">@mySetlists.Count</span>
+                </button>
+                @if (expandedSetlistFolders.Contains("setlists-my"))
+                {
+                    foreach (var item in mySetlists)
+                    {
+                        <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
+                                @onclick='() => SelectSetlistFolderItem("setlists-my", item.Id)'>
+                            <span class="nav-icon">📄</span>
+                            <span class="nav-label">@item.Name</span>
+                            <span class="nav-count">@item.SongCount</span>
+                        </button>
+                    }
+                }
+
+                <button class="p1-nav-item @(activeSection == "setlists-smart" ? "nav-active" : "")"
+                        @onclick='() => ToggleSetlistFolder("setlists-smart")'>
+                    <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-smart") ? "📂" : "📁")</span>
+                    <span class="nav-label">Smart Setlists</span>
+                    <span class="nav-count">@smartSetlists.Count</span>
+                </button>
+                @if (expandedSetlistFolders.Contains("setlists-smart"))
+                {
+                    foreach (var item in smartSetlists)
+                    {
+                        <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
+                                @onclick='() => SelectSetlistFolderItem("setlists-smart", item.Id)'>
+                            <span class="nav-icon">📄</span>
+                            <span class="nav-label">@item.Name</span>
+                            <span class="nav-count">@item.SongCount</span>
+                        </button>
+                    }
+                }
+            }
         </nav>
 
         <div class="p1-footer">
@@ -101,14 +146,12 @@
                 <h2 class="p2-title">@SectionTitle</h2>
             </div>
 
-            <!-- Search -->
             <div class="p2-search-row">
                 <input type="search" placeholder="🔍 Search songs, lyrics, taal..."
                        class="p2-search"
                        @bind="searchText" @bind:event="oninput" @onkeyup="ApplyFilters" />
             </div>
 
-            <!-- Key filter -->
             <div class="p2-filter-row">
                 <select class="p2-filter-select" @onchange="OnKeyChanged">
                     <option value="">All Keys</option>
@@ -123,7 +166,6 @@
                 }
             </div>
 
-            <!-- ✨ Permanent Old / New Tabs — always visible -->
             <div class="p2-tabs">
                 <button class="p2-tab @(categoryTab == "New" ? "p2-tab-active" : "")"
                         @onclick='() => SetCategoryTab("New")'>
@@ -823,46 +865,43 @@
 @code {
     [Parameter] public int SongId { get; set; }
 
-    // ── Data ──
     private List<SongItem> allSongs = new();
     private List<SongItem> displayedSongs = new();
     private UserDataState userData = new();
     private SongDetail? selectedSong;
+    private List<SetlistShellItem> globalSetlists = new();
+    private List<SetlistShellItem> mySetlists = new();
+    private List<SetlistShellItem> smartSetlists = new();
 
-    // ── UI State ──
     private string activeSection = "all";
     private int? selectedSongId;
     private string searchText = "";
-    private string categoryTab = "New";   // ← permanent tab: "New" | "Old" | ""
+    private string categoryTab = "New";
     private string filterKey = "";
     private bool isLoading = true;
     private bool isDetailLoading = false;
     private int mobilePanelIndex = 0;
-
-    // ── Transpose ──
     private int transposeSteps = 0;
-
-    // ── Favorite / Setlist toggles ──
     private bool isFavorite = false;
     private bool inNewSetlist = false;
     private bool inOldSetlist = false;
-
-    // ── Font size ──
     private int lyricsFontSize = 16;
-
-    // ── Auto scroll ──
     private bool isAutoScrolling = false;
-    private System.Threading.CancellationTokenSource? _scrollCts;
-
-    // ── App Theme + Suggestions ──
-    private string appThemeMode = "auto"; // auto | light | dark
+    private CancellationTokenSource? _scrollCts;
+    private string appThemeMode = "auto";
     private bool suggestedDrawerOpen = false;
     private List<SongItem> suggestedSongs = new();
+    private HashSet<string> expandedSetlistFolders = new() { "setlists-global", "setlists-my", "setlists-smart" };
+    private string? selectedSetlistShellId;
 
-    // Persisted preference keys
     private const string PrefThemeKey = "oldnew:shell:theme";
     private const string PrefFontSizeKey = "oldnew:shell:fontSize";
     private const string PrefCategoryTabKey = "oldnew:shell:categoryTab";
+    private const string PrefSectionKey = "oldnew:shell:section";
+    private const string PrefSongIdKey = "oldnew:shell:songId";
+    private const string PrefPanelKey = "oldnew:shell:panel";
+
+    private int? persistedSongId;
 
     private string AppThemeLabel => appThemeMode switch
     {
@@ -878,17 +917,12 @@
         _ => "theme-light"
     };
 
-    // ── Edit mode ──
     private SongFormModel editSong = new();
     private string editGenresText = "";
     private bool isSaving = false;
     private string? saveError;
     private bool saveSuccess = false;
-
-    // ── Add mode ──
     private SongFormModel newSong = new();
-
-    // Modal state
     private bool showSongModal = false;
     private bool isEditModal = false;
 
@@ -899,23 +933,21 @@
     private static readonly string[] Moods =
         { "Worship","Praise","Reflective","Joyful","Peaceful","Energetic","Devotional" };
 
-    // Tab counts
     private int NewTabCount => GetSectionBase().Count(s => s.Category == "New");
     private int OldTabCount => GetSectionBase().Count(s => s.Category == "Old");
     private int AllTabCount => GetSectionBase().Count();
-
     private bool HasFilters => !string.IsNullOrEmpty(filterKey);
 
     private string SectionTitle => activeSection switch
     {
-        "favorites"  => "❤️ Favorites",
-        "new"        => "✨ New Setlist",
-        "old"        => "🕰️ Old Setlist",
-        _            => "🎵 All Songs"
+        "favorites" => "❤️ Favorites",
+        "setlists-global" => "🌍 Global Setlists",
+        "setlists-my" => "📋 My Setlists",
+        "setlists-smart" => "🧠 Smart Setlists",
+        _ => "🎵 All Songs"
     };
 
-    // ── Transpose ──
-    private static readonly string[] KeyOrder  = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
+    private static readonly string[] KeyOrder = { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B" };
     private static readonly string[] MinorOrder = { "Cm","C#m","Dm","D#m","Em","Fm","F#m","Gm","G#m","Am","A#m","Bm" };
 
     private string TransposedKey
@@ -931,13 +963,15 @@
         }
     }
 
-    // ── Lifecycle ──
     protected override async Task OnInitializedAsync()
     {
         await LoadShellPreferencesAsync();
-
         await LoadAllSongs();
-        if (UserState.IsLoggedIn) await LoadUserData();
+        if (UserState.IsLoggedIn)
+        {
+            await LoadUserData();
+            await LoadSetlistsAsync();
+        }
 
         if (SongId > 0)
         {
@@ -946,7 +980,11 @@
         }
         else
         {
-            mobilePanelIndex = 0;
+            if (!string.IsNullOrWhiteSpace(activeSection))
+                await SelectSection(activeSection, persistState: false);
+
+            if (persistedSongId is > 0 && allSongs.Any(s => s.Id == persistedSongId.Value))
+                await SelectSong(persistedSongId.Value, persistState: false);
         }
     }
 
@@ -965,6 +1003,16 @@
             var tab = await GetPreferenceAsync(PrefCategoryTabKey);
             if (tab is "New" or "Old" or "")
                 categoryTab = tab;
+
+            var section = await GetPreferenceAsync(PrefSectionKey);
+            if (!string.IsNullOrWhiteSpace(section))
+                activeSection = section;
+
+            var panel = await GetPreferenceAsync(PrefPanelKey);
+            if (int.TryParse(panel, out var panelValue))
+                mobilePanelIndex = Math.Clamp(panelValue, 0, 2);
+
+            persistedSongId = int.TryParse(await GetPreferenceAsync(PrefSongIdKey), out var id) ? id : (int?)null;
         }
         catch { }
     }
@@ -1004,12 +1052,43 @@
         catch { }
     }
 
-    // ── Section selection ──
-    private async Task SelectSection(string section)
+    private async Task LoadSetlistsAsync()
+    {
+        try
+        {
+            var global = await Http.GetFromJsonAsync<List<SetlistResponse>>("api/setlists/global") ?? new();
+            var mine = await Http.GetFromJsonAsync<List<SetlistResponse>>("api/setlists/mine") ?? new();
+            var smart = await Http.GetFromJsonAsync<List<SetlistResponse>>("api/setlists/smart") ?? new();
+
+            globalSetlists = global.Select(s => new SetlistShellItem(s.Id, s.Name, s.Type, s.Songs?.Count ?? 0)).ToList();
+            mySetlists = mine.Select(s => new SetlistShellItem(s.Id, s.Name, s.Type, s.Songs?.Count ?? 0)).ToList();
+            smartSetlists = smart.Select(s => new SetlistShellItem(s.Id, s.Name, s.Type, s.Songs?.Count ?? 0)).ToList();
+        }
+        catch { }
+    }
+
+    private void ToggleSetlistFolder(string section)
+    {
+        activeSection = section;
+        if (!expandedSetlistFolders.Add(section))
+            expandedSetlistFolders.Remove(section);
+    }
+
+    private void SelectSetlistFolderItem(string section, string setlistId)
+    {
+        activeSection = section;
+        selectedSetlistShellId = setlistId;
+        mobilePanelIndex = 1;
+        _ = SavePreferenceAsync(PrefSectionKey, section);
+        _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString());
+    }
+
+    private async Task SelectSection(string section, bool persistState = true)
     {
         activeSection = section;
         selectedSong = null;
         selectedSongId = null;
+        selectedSetlistShellId = null;
         transposeSteps = 0;
         suggestedDrawerOpen = false;
         suggestedSongs = new();
@@ -1019,12 +1098,18 @@
         ApplyFilters();
         mobilePanelIndex = 1;
 
-        if ((section == "favorites" || section == "new" || section == "old") && UserState.IsLoggedIn)
+        if (persistState)
+        {
+            await SavePreferenceAsync(PrefSectionKey, section);
+            await SavePreferenceAsync(PrefSongIdKey, string.Empty);
+            await SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString());
+        }
+
+        if (section == "favorites" && UserState.IsLoggedIn)
             await LoadUserData();
     }
 
-    // ── Song selection ──
-    private async Task SelectSong(int id)
+    private async Task SelectSong(int id, bool persistState = true)
     {
         if (selectedSongId == id) return;
         selectedSongId = id;
@@ -1043,25 +1128,26 @@
                 inNewSetlist = userData.NewSetlist.Contains(id);
                 inOldSetlist = userData.OldSetlist.Contains(id);
             }
+            if (persistState)
+            {
+                await SavePreferenceAsync(PrefSongIdKey, id.ToString());
+                await SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString());
+            }
             RefreshSuggestedSongs();
         }
         catch { selectedSong = null; }
         finally { isDetailLoading = false; }
     }
 
-    // ── Section base (before tab/search/key filters) ──
     private IEnumerable<SongItem> GetSectionBase()
     {
         return activeSection switch
         {
             "favorites" => allSongs.Where(s => userData.Favorites.Contains(s.Id)),
-            "new"       => allSongs.Where(s => userData.NewSetlist.Contains(s.Id)),
-            "old"       => allSongs.Where(s => userData.OldSetlist.Contains(s.Id)),
-            _           => allSongs
+            _ => allSongs
         };
     }
 
-    // ── Filtering ──
     private void ApplyFilters()
     {
         var result = GetSectionBase();
@@ -1090,7 +1176,6 @@
     private void OnKeyChanged(ChangeEventArgs e) { filterKey = e.Value?.ToString() ?? ""; ApplyFilters(); }
     private void ClearFilters() { filterKey = ""; searchText = ""; ApplyFilters(); }
 
-    // ── Theme + Suggestions ──
     private void ToggleAppThemeMode()
     {
         appThemeMode = appThemeMode switch
@@ -1116,15 +1201,11 @@
         var keyMatch = sameCategory.Where(s => s.Key == selectedSong.Key).ToList();
         var others = sameCategory.Where(s => s.Key != selectedSong.Key).ToList();
 
-        suggestedSongs = keyMatch
-            .Concat(others.OrderBy(_ => Guid.NewGuid()))
-            .Take(12)
-            .ToList();
+        suggestedSongs = keyMatch.Concat(others.OrderBy(_ => Guid.NewGuid())).Take(12).ToList();
 
         if (suggestedSongs.Count < 6)
         {
-            var extras = pool
-                .Where(s => !suggestedSongs.Any(x => x.Id == s.Id))
+            var extras = pool.Where(s => !suggestedSongs.Any(x => x.Id == s.Id))
                 .OrderBy(_ => Guid.NewGuid())
                 .Take(6 - suggestedSongs.Count);
             suggestedSongs.AddRange(extras);
@@ -1139,19 +1220,11 @@
     }
 
     private void CloseSuggestedDrawer() => suggestedDrawerOpen = false;
-
-    private async Task SelectSuggestedSong(int id)
-    {
-        suggestedDrawerOpen = false;
-        await SelectSong(id);
-    }
-
-    // ── Transpose ──
+    private async Task SelectSuggestedSong(int id) { suggestedDrawerOpen = false; await SelectSong(id); }
     private void TransposeUp() => transposeSteps++;
     private void TransposeDown() => transposeSteps--;
     private void ResetTranspose() => transposeSteps = 0;
 
-    // ── Font Size ──
     private void IncreaseFontSize()
     {
         lyricsFontSize = Math.Min(lyricsFontSize + 2, 32);
@@ -1164,7 +1237,6 @@
         _ = SavePreferenceAsync(PrefFontSizeKey, lyricsFontSize.ToString());
     }
 
-    // ── Auto Scroll ──
     private void ToggleAutoScroll()
     {
         if (isAutoScrolling)
@@ -1176,7 +1248,7 @@
         else
         {
             isAutoScrolling = true;
-            _scrollCts = new System.Threading.CancellationTokenSource();
+            _scrollCts = new CancellationTokenSource();
             var token = _scrollCts.Token;
             _ = Task.Run(async () =>
             {
@@ -1185,15 +1257,13 @@
                     await Task.Delay(50, token).ConfigureAwait(false);
                     await InvokeAsync(async () =>
                     {
-                        await JS.InvokeVoidAsync("eval",
-                            "document.getElementById('lyrics-scroll-panel')?.scrollBy(0, 1)");
+                        await JS.InvokeVoidAsync("eval", "document.getElementById('lyrics-scroll-panel')?.scrollBy(0, 1)");
                     });
                 }
             }, token);
         }
     }
 
-    // ── Favorite / Setlist ──
     private async Task ToggleFavorite()
     {
         if (!UserState.IsLoggedIn || selectedSongId is null) return;
@@ -1223,8 +1293,6 @@
         else userData.OldSetlist.Remove(selectedSongId.Value);
         ApplyFilters();
     }
-
-    // ── Edit / Save ──
 
     private async Task SaveEditedSong()
     {
@@ -1274,29 +1342,11 @@
         finally { isSaving = false; }
     }
 
-    // ── Chord Transposition Engine (mirrors original app's transposeChord logic) ──
-    private static readonly string[] ChordRoots =
-        { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-
-    private static readonly Dictionary<string, string> FlatToSharp = new()
-    {
-        {"Db","C#"},{"Eb","D#"},{"Fb","E"},{"Gb","F#"},{"Ab","G#"},{"Bb","A#"},{"Cb","B"}
-    };
-
-    // Matches full chord symbols: C, Am, G#maj7, Bb/F, etc.
-    private static readonly Regex ChordRegex = new(
-        @"([A-G][#b]?)(maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/([A-G][#b]?))?",
-        RegexOptions.Compiled);
-
-    // Matches a whole line that is only chords + spaces
-    private static readonly Regex ChordLineRegex = new(
-        @"^(\s*[A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?\s*)+$",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-    // Matches [Chord] inline markers: [Am], [G#7], etc.
-    private static readonly Regex InlineChordRegex = new(
-        @"\[([A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?)\]",
-        RegexOptions.Compiled);
+    private static readonly string[] ChordRoots = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    private static readonly Dictionary<string, string> FlatToSharp = new() { {"Db","C#"},{"Eb","D#"},{"Fb","E"},{"Gb","F#"},{"Ab","G#"},{"Bb","A#"},{"Cb","B"} };
+    private static readonly Regex ChordRegex = new(@"([A-G][#b]?)(maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/([A-G][#b]?))?", RegexOptions.Compiled);
+    private static readonly Regex ChordLineRegex = new(@"^(\s*[A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?\s*)+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex InlineChordRegex = new(@"\[([A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?)\]", RegexOptions.Compiled);
 
     private static string TransposeSingleRoot(string root, int steps)
     {
@@ -1313,9 +1363,7 @@
         {
             var root = TransposeSingleRoot(m.Groups[1].Value, steps);
             var quality = m.Groups[2].Value;
-            var bass = m.Groups[3].Success
-                ? "/" + TransposeSingleRoot(m.Groups[3].Value, steps)
-                : "";
+            var bass = m.Groups[3].Success ? "/" + TransposeSingleRoot(m.Groups[3].Value, steps) : "";
             return root + quality + bass;
         });
     }
@@ -1329,54 +1377,32 @@
         foreach (var rawLine in lyrics.Split('\n'))
         {
             var line = rawLine.TrimEnd('\r');
-
-            // 1. Inline [Chord] markers
             if (InlineChordRegex.IsMatch(line))
             {
-                var escaped = System.Web.HttpUtility.HtmlEncode(
-                    InlineChordRegex.Replace(line, m => $"\x01{m.Groups[1].Value}\x02"));
-                escaped = escaped
-                    .Replace("\x01", "<span class=\"inline-chord\">[")
-                    .Replace("\x02", steps == 0
-                        ? "]</span>"
-                        : $" → {System.Web.HttpUtility.HtmlEncode(TransposeChordSymbol(
-                            line[line.IndexOf('[')..(line.IndexOf(']') + 1)], steps))}]</span>");
-
-                // Simpler: re-process properly
-                var rendered = InlineChordRegex.Replace(
-                    System.Web.HttpUtility.HtmlEncode(line),
-                    m =>
-                    {
-                        var orig = m.Groups[1].Value;
-                        var transposed = TransposeChordSymbol(orig, steps);
-                        return $"<span class=\"inline-chord\">[{System.Web.HttpUtility.HtmlEncode(transposed)}]</span>";
-                    });
+                var rendered = InlineChordRegex.Replace(System.Web.HttpUtility.HtmlEncode(line), m =>
+                {
+                    var orig = m.Groups[1].Value;
+                    var transposed = TransposeChordSymbol(orig, steps);
+                    return $"<span class=\"inline-chord\">[{System.Web.HttpUtility.HtmlEncode(transposed)}]</span>";
+                });
                 sb.AppendLine(rendered);
                 continue;
             }
 
-            // 2. Chord-only line
             if (!string.IsNullOrWhiteSpace(line) && ChordLineRegex.IsMatch(line.Trim()))
             {
-                var transposed = steps == 0 ? line
-                    : ChordRegex.Replace(line, m =>
-                    {
-                        if (!m.Success || string.IsNullOrEmpty(m.Groups[1].Value)) return m.Value;
-                        return TransposeChordSymbol(m.Value, steps);
-                    });
+                var transposed = steps == 0 ? line : ChordRegex.Replace(line, m => TransposeChordSymbol(m.Value, steps));
                 sb.AppendLine($"<span class=\"chord-line\">{System.Web.HttpUtility.HtmlEncode(transposed)}</span>");
                 continue;
             }
 
-            // 3. Plain lyric line
             sb.AppendLine(System.Web.HttpUtility.HtmlEncode(line));
         }
         return sb.ToString();
     }
 
-    // ── Mobile navigation ──
-    private void MobileGoToPanel1() { mobilePanelIndex = 0; }
-    private void MobileGoToPanel2() { mobilePanelIndex = 1; }
+    private void MobileGoToPanel1() { mobilePanelIndex = 0; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
+    private void MobileGoToPanel2() { mobilePanelIndex = 1; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
 
     private void OpenAddModal()
     {
@@ -1407,7 +1433,6 @@
                 SpotifyLink = selectedSong.SpotifyLink
             };
             editGenresText = string.Join(", ", selectedSong.Genres ?? new());
-
             isEditModal = true;
             showSongModal = true;
             saveError = null;
@@ -1426,22 +1451,13 @@
     {
         if (isEditModal) await SaveEditedSong();
         else await SaveNewSong();
-
-        if (string.IsNullOrEmpty(saveError))
-        {
-            CloseSongModal();
-        }
+        if (string.IsNullOrEmpty(saveError)) CloseSongModal();
     }
 
-    // ── Models ──
-    private record SongItem(int Id, String Title, String Category, String Key,
-        List<String> Genres, String? Singer, String? Mood);
-
-    private record SongDetail(int Id, String Title, String Category, String Key,
-        String Tempo, String Time, String Taal, List<String> Genres, String Lyrics,
-        String? Singer, String? Mood, List<String>? Tags, String? YoutubeLink,
-        String? SpotifyLink, String? Notes, bool IsPublic, int ViewCount,
-        DateTime CreatedAt, DateTime? UpdatedAt);
+    private record SetlistShellItem(string Id, string Name, string Type, int SongCount);
+    private record SetlistResponse(string Id, string Name, string? Description, string Type, string? OwnerUserId, List<int> Songs, Dictionary<string, string>? Conditions, bool IsPublic, DateTime CreatedAt, DateTime UpdatedAt);
+    private record SongItem(int Id, string Title, string Category, string Key, List<string> Genres, string? Singer, string? Mood);
+    private record SongDetail(int Id, string Title, string Category, string Key, string Tempo, string Time, string Taal, List<string> Genres, string Lyrics, string? Singer, string? Mood, List<string>? Tags, string? YoutubeLink, string? SpotifyLink, string? Notes, bool IsPublic, int ViewCount, DateTime CreatedAt, DateTime? UpdatedAt);
 
     private class UserDataState
     {
@@ -1467,4 +1483,12 @@
         public string? SpotifyLink { get; set; }
     }
 }
+
+
+
+
+
+
+
+
 

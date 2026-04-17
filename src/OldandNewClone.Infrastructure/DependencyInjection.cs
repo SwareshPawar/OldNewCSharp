@@ -69,6 +69,7 @@ public static class DependencyInjection
         // Repositories
         services.AddScoped<ISongRepository, SongRepository>();
         services.AddScoped<IUserDataRepository, UserDataRepository>();
+        services.AddScoped<ISetlistRepository, SetlistRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
 
         return services;

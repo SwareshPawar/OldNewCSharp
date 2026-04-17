@@ -143,118 +143,162 @@ Result: Both Node.js and .NET users can login without data changes
 
 ---
 
-### 🔄 Phase 5: User Profile & Setlists (NEXT)
-**Status**: Planned
+### 🔄 Phase 5: User Profile & Setlists
+**Status**: Completed
 **Timeline**: Week 4
 
-**Objectives**:
-- UserProfile.razor — view/edit preferences
-- Setlist management (build a worship setlist from songs)
-- Favorites feature
-- MAUI mobile pages for Songs
-
+**Completed Deliverables**:
+- ✅ Favorites feature
+- ✅ Setlist management (New Setlist / Old Setlist)
+- ✅ User state management for authenticated sessions
+- ✅ Login flow integration with shared user state
+- ✅ Navigation updates for favorites and setlists
+- ✅ User data endpoints protected with authorization
 
 ---
 
-### 📋 Phase 6: MAUI Mobile App (PLANNED)
-**Status**: Planned
+### 🔄 Phase 6: MAUI Mobile App
+**Status**: In Progress
 **Timeline**: Week 7-8
 
-**Objectives**:
-- Create mobile UI with .NET MAUI
-- Implement offline support
-- Add mobile-specific features
-
-**Deliverables**:
-- [ ] MAUI pages for song browsing
-- [ ] MAUI login/register
-- [ ] Offline song caching
-- [ ] Mobile-optimized layouts
-- [ ] Platform-specific features (iOS/Android)
+**Completed Deliverables**:
+- ✅ MAUI login page
+- ✅ MAUI song library page
+- ✅ MAUI song details page
+- ✅ MAUI favorites page
+- ✅ MAUI setlist page
+- ✅ MAUI profile page
+- ✅ Shared `UserStateService` moved to Application layer
+- ⏳ Offline song caching
+- ⏳ Full mobile shell parity with Web
+- ⏳ Platform-specific features (iOS/Android)
 
 ---
 
-### 🎨 Phase 7: UI/UX Enhancement (PLANNED)
-**Status**: Planned
+### ✅ Phase 7: UI/UX Enhancement
+**Status**: Completed (Core shell delivered)
 **Timeline**: Week 9
 
-**Objectives**:
-- Improve Blazor UI design
-- Add responsive layouts
-- Enhance mobile experience
-- Add animations and transitions
-
-**Deliverables**:
-- [ ] Consistent UI theme
-- [ ] Responsive navigation
-- [ ] Loading states
-- [ ] Error handling UI
-- [ ] Success/failure notifications
-- [ ] Accessibility improvements
+**Completed Deliverables**:
+- ✅ Teams-style 3-panel shell at `/songs`
+- ✅ Responsive panel behavior
+- ✅ Panel 2 permanent New / Old / All tabs
+- ✅ Modal-based Add Song / Edit Song UX
+- ✅ Global shell theme toggle
+- ✅ Suggested songs drawer
+- ✅ Loading and empty states in shell
+- ⏳ Accessibility polish
+- ⏳ Notification polish
 
 ---
 
-### 🔒 Phase 8: Security & Production Readiness (PLANNED)
-**Status**: Planned
+### 🔒 Phase 8: Security & Production Readiness
+**Status**: In Progress
 **Timeline**: Week 10
 
-**Objectives**:
-- Implement comprehensive authorization
-- Add input validation
-- Secure API endpoints
-- Add rate limiting
-- Implement logging and monitoring
-
-**Deliverables**:
-- [ ] Role-based authorization (User/Admin)
-- [ ] Input validation and sanitization
-- [ ] HTTPS enforcement
-- [ ] CORS configuration for production
-- [ ] Rate limiting middleware
-- [ ] Application Insights / logging
-- [ ] Error tracking
-- [ ] Performance monitoring
+**Completed Deliverables**:
+- ✅ Authorization on song create/update/delete
+- ✅ Authorization on user data endpoints
+- ✅ Global theme persistence support
+- ⏳ Role-based authorization audit across all flows
+- ⏳ Input validation and sanitization review
+- ⏳ HTTPS / CORS production hardening
+- ⏳ Rate limiting middleware
+- ⏳ Logging / monitoring improvements
 
 ---
 
-### 🧪 Phase 9: Testing (PLANNED)
-**Status**: Planned
-**Timeline**: Week 11
+### ✅ Phase 9: Shell Feature Parity and Teams-Style Workspace
+**Status**: Completed
+**Timeline**: Ongoing
 
-**Objectives**:
-- Write unit tests
-- Add integration tests
-- Perform end-to-end testing
-- Load testing
-
-**Deliverables**:
-- [ ] Unit tests for services
-- [ ] Unit tests for repositories
-- [ ] Integration tests for API endpoints
-- [ ] Blazor component tests
-- [ ] Authentication flow tests
-- [ ] Database operation tests
-- [ ] Load testing results
+**Completed Deliverables**:
+- ✅ Teams-style 3-panel workspace model documented
+- ✅ Global shell theme rule defined and implemented
+- ✅ Full chord transposition (lines + inline chord markers)
+- ✅ Auto-scroll lyrics
+- ✅ Font size controls
+- ✅ Suggested Songs drawer
+- ✅ Stable global theme across sections and songs
+- ✅ Add/Edit moved to dialogs instead of occupying panels
 
 ---
 
-### 📦 Phase 10: Deployment (PLANNED)
+### 🔄 Phase 10: Workspace Persistence
+**Status**: In Progress
+**Timeline**: Next
+
+**Completed Deliverables**:
+- ✅ Persist theme mode
+- ✅ Persist font size
+- ✅ Persist Panel 2 category tab
+- ✅ Persist selected section in Panel 1
+- ✅ Persist selected song in Panel 2
+- ✅ Persist active panel state across reloads
+
+**Next Deliverables**:
+- ⏳ Persist Panel 3 reading position if useful
+
+---
+
+### 🔄 Phase 11: Shell Polish
 **Status**: Planned
-**Timeline**: Week 12
+
+**Next Deliverables**:
+- ⏳ ESC to close dialogs and drawers
+- ⏳ Focus handling for modals
+- ⏳ Keyboard shortcuts
+- ⏳ Better mobile transitions
+- ⏳ Unified error/loading visuals
+
+---
+
+### 🔄 Phase 12: MAUI Shell Parity
+**Status**: Planned
+
+**Next Deliverables**:
+- ⏳ Bring Teams-style 3-panel shell mental model to MAUI
+- ⏳ Global theme parity with Web
+- ⏳ Modal-based add/edit parity
+- ⏳ Suggested songs parity if relevant
+
+---
+
+### 🔄 Phase 13: Data and Security Hardening
+**Status**: Planned
+
+**Next Deliverables**:
+- ⏳ Authorization review for edit/delete flows
+- ⏳ Validation review for add/edit payloads
+- ⏳ Error handling improvements
+- ⏳ Concurrency / safe write review
+
+---
+
+### 🧪 Phase 14: Testing
+**Status**: Planned
 
 **Objectives**:
-- Deploy to production
-- Set up CI/CD pipeline
-- Configure production database
-- Monitor application health
+- Add targeted automated coverage for the new shell and migrated behavior
+- Protect regressions in song workflows, rendering, and persistence
 
 **Deliverables**:
-- [ ] Production deployment plan
-- [ ] CI/CD pipeline (GitHub Actions)
-- [ ] Production MongoDB configuration
-- [ ] Environment-based configuration
-- [ ] Health checks and monitoring
-- [ ] Backup and disaster recovery plan
+- [ ] Tests for shell filtering logic
+- [ ] Tests for transpose and chord rendering
+- [ ] Tests for suggestion selection logic
+- [ ] Tests for add song flow
+- [ ] Tests for edit song flow
+- [ ] Tests for theme persistence
+- [ ] Tests for category tab persistence
+- [ ] Tests for font size persistence
+- [ ] Tests for favorites and setlist toggle behavior
+- [ ] Tests for modal open/close behavior
+
+---
+
+### 📦 Phase 15: Deployment
+**Status**: Planned
+**Timeline**: Final phase
 
 ---
 
@@ -587,3 +631,149 @@ Studied branch: main2 — https://github.com/SwareshPawar/OldandNew
 - ✅ Lyrics theme toggle (Auto / Dark / Light)
 - ✅ Keep Screen On toggle (Wake Lock API with graceful fallback)
 - ✅ Auto-scroll now stops automatically on song/section change
+
+---
+
+## Phase 9: Teams-Style App Structure and Theming Model
+
+### Design Decision
+The application should be understood and evolved as a **Teams-style 3-panel workspace**, not as isolated pages.
+
+### Mental Model
+| Teams-style concept | OldandNew app equivalent | Current implementation |
+|---|---|---|
+| Left app rail (Activity, Chat, Calendar, Files) | Primary app sections such as Home, Favorites, Setlists, and other top-level navigation | **Panel 1** |
+| Middle list pane (chat/channel/task list) | Song list / filtered working list / selected collection list | **Panel 2** |
+| Right content pane (message thread / task detail / document detail) | Lyrics preview / selected song detail / focused working content | **Panel 3** |
+
+### Structural Interpretation
+The app structure should be treated as:
+1. **Panel 1 = Workspace Navigation**
+   - Top-level areas of the app
+   - Equivalent to the Teams left rail
+   - Examples: Home, Favorites, New Setlist, Old Setlist, theme control, profile/account actions
+
+2. **Panel 2 = Active Collection/List Context**
+   - The currently selected working list
+   - Equivalent to conversation list / task list / channel content list in Teams
+   - In this app: song list, filtered list, favorites list, setlist list
+
+3. **Panel 3 = Focused Content View**
+   - The currently selected item's deep content
+   - Equivalent to message thread / task details / content preview in Teams
+   - In this app: lyrics preview, song metadata, transpose tools, suggestions, focused reading tools
+
+### Theming Rule
+Theme should be applied at the **workspace shell level**, not per song and not per panel.
+
+Implications:
+- Theme is global across **Panel 1, Panel 2, and Panel 3**
+- Theme must remain stable while changing songs or switching lists
+- Theme is a user workspace preference, similar to Teams app theming
+- Content selection must not change the app theme automatically
+
+### UX Rule for Future Migration Work
+All future UI work should preserve this model:
+- **Panel 1** changes workspace context
+- **Panel 2** changes list context
+- **Panel 3** changes focused content
+- Forms such as **Add Song** and **Edit Song** should appear as dialogs/modals, not replace the role of any panel
+
+### Migration Guidance
+Future migration steps should align new features to this shell model:
+- Calendar-like features belong in **Panel 1** navigation
+- Collection/list views belong in **Panel 2**
+- Reading/detail/preview experiences belong in **Panel 3**
+- Theme, workspace preferences, and shell behavior should be centralized and persistent
+
+### Status
+- ✅ Teams-style app structure defined
+- ✅ Global shell theme rule defined
+- ✅ Panel responsibilities documented
+- ✅ Modal-based edit/create behavior aligned to shell model
+
+---
+
+## Phase 10A: Real Setlist System Migration (STARTED)
+
+### Problem
+The previous C# implementation exposed only fixed user buckets:
+- `NewSetlist`
+- `OldSetlist`
+
+This does **not** match the original app on the `main` branch, which supports richer setlist behavior.
+
+### Original App Setlist Types (main branch)
+The original app supports first-class setlists including:
+- **Global Setlists**
+- **My Setlists**
+- **Smart Setlists**
+- manual song addition into a setlist
+- New/Old grouping inside a setlist view
+
+### Migration Decision
+The old dedicated `/setlist` page was removed because it represented the wrong model.
+Setlists will now be migrated as first-class entities and later integrated into the Teams-style shell.
+
+### Backend Foundation Completed
+- ✅ Added `Setlist` domain entity
+- ✅ Added `SetlistDto`, `CreateSetlistDto`, `UpdateSetlistDto`
+- ✅ Added `ISetlistRepository` and `ISetlistService`
+- ✅ Added `SetlistRepository`
+- ✅ Added `SetlistService`
+- ✅ Added `SetlistsController`
+- ✅ Wired DI registrations
+- ✅ Added MongoDB `Setlists` collection access
+- ✅ Removed obsolete Web and MAUI `Setlist.razor` pages
+- ✅ Removed obsolete nav links pointing to fixed-bucket setlists
+
+### Next Implementation Steps
+- ⏳ Add Shell UI for Global / My / Smart setlists
+- ⏳ Add create/edit/delete dialogs for setlists
+- ⏳ Add add/remove song to specific setlist
+- ⏳ Add New/Old grouping within setlist detail view
+- ⏳ Keep Favorites separate from setlists
+- ⏳ De-emphasize legacy `NewSetlist` / `OldSetlist` storage after migration path is complete
+
+---
+
+## Phase 10B: Setlist Folder Hierarchy in Panel 1 (STARTED)
+
+### Requirement
+Setlists must follow a **folder hierarchy** in the Teams-style shell.
+
+### Panel 1 Setlist Structure
+Panel 1 should not treat `Global Setlists`, `My Setlists`, and `Smart Setlists` as individual setlists.
+Instead, they are **folder/group nodes** that contain user-created setlists under them.
+
+Structure:
+- **Global Setlists** (folder)
+  - Setlist A
+  - Setlist B
+- **My Setlists** (folder)
+  - Setlist C
+  - Setlist D
+- **Smart Setlists** (folder)
+  - Setlist E
+  - Setlist F
+
+### UX Interpretation
+- The folder nodes live in **Panel 1**
+- The created setlists also appear in **Panel 1** as nested child items under the folder
+- Panel 1 therefore contains both:
+  - top-level workspace sections
+  - setlist folders
+  - actual setlist entries beneath each folder
+
+### Implementation Rule
+- `Global Setlists`, `My Setlists`, and `Smart Setlists` are not leaf items
+- They are expandable/collapsible containers
+- The actual setlist documents loaded from MongoDB are rendered beneath them
+- This mirrors the original application more closely than the earlier fixed-bucket model
+
+### Status
+- ✅ Requirement documented
+- ✅ Reader aligned to original MongoDB setlist collections
+- ⏳ Panel 1 nested folder rendering
+- ⏳ Setlist selection behavior
+- ⏳ Panel 2 / Panel 3 integration for selected setlist
