@@ -56,12 +56,24 @@
                 {
                     foreach (var item in globalSetlists)
                     {
-                        <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
-                                @onclick='() => SelectSetlistFolderItem("setlists-global", item.Id)'>
-                            <span class="nav-icon">📄</span>
-                            <span class="nav-label">@item.Name</span>
-                            <span class="nav-count">@item.SongCount</span>
-                        </button>
+                        <div class="setlist-row">
+                            <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
+                                    @onclick='async () => await SelectSetlistFolderItem("setlists-global", item.Id)'>
+                                <span class="nav-icon">📄</span>
+                                <span class="nav-label">@item.Name</span>
+                                <span class="nav-count">@item.SongCount</span>
+                            </button>
+
+                            @if (UserState.IsAdmin)
+                            {
+                                <div class="setlist-actions">
+                                    <button class="setlist-icon-btn" title="Edit setlist"
+                                            @onclick='async () => await OpenEditSetlistModalFor("setlists-global", item.Id)'>✏️</button>
+                                    <button class="setlist-icon-btn danger" title="Delete setlist"
+                                            @onclick='async () => await DeleteSetlistFromPanel1("setlists-global", item.Id)'>🗑️</button>
+                                </div>
+                            }
+                        </div>
                     }
                 }
 
@@ -75,12 +87,20 @@
                 {
                     foreach (var item in mySetlists)
                     {
-                        <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
-                                @onclick='() => SelectSetlistFolderItem("setlists-my", item.Id)'>
-                            <span class="nav-icon">📄</span>
-                            <span class="nav-label">@item.Name</span>
-                            <span class="nav-count">@item.SongCount</span>
-                        </button>
+                        <div class="setlist-row">
+                            <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
+                                    @onclick='async () => await SelectSetlistFolderItem("setlists-my", item.Id)'>
+                                <span class="nav-icon">📄</span>
+                                <span class="nav-label">@item.Name</span>
+                                <span class="nav-count">@item.SongCount</span>
+                            </button>
+                            <div class="setlist-actions">
+                                <button class="setlist-icon-btn" title="Edit setlist"
+                                        @onclick='async () => await OpenEditSetlistModalFor("setlists-my", item.Id)'>✏️</button>
+                                <button class="setlist-icon-btn danger" title="Delete setlist"
+                                        @onclick='async () => await DeleteSetlistFromPanel1("setlists-my", item.Id)'>🗑️</button>
+                            </div>
+                        </div>
                     }
                 }
 
@@ -94,12 +114,20 @@
                 {
                     foreach (var item in smartSetlists)
                     {
-                        <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
-                                @onclick='() => SelectSetlistFolderItem("setlists-smart", item.Id)'>
-                            <span class="nav-icon">📄</span>
-                            <span class="nav-label">@item.Name</span>
-                            <span class="nav-count">@item.SongCount</span>
-                        </button>
+                        <div class="setlist-row">
+                            <button class="p1-nav-child-item @(selectedSetlistShellId == item.Id ? "nav-active" : "")"
+                                    @onclick='async () => await SelectSetlistFolderItem("setlists-smart", item.Id)'>
+                                <span class="nav-icon">📄</span>
+                                <span class="nav-label">@item.Name</span>
+                                <span class="nav-count">@item.SongCount</span>
+                            </button>
+                            <div class="setlist-actions">
+                                <button class="setlist-icon-btn" title="Sync smart setlist songs"
+                                        @onclick='async () => await SyncSmartSetlist(item.Id)'>
+                                    @(isSmartSetlistSyncing && syncingSmartSetlistId == item.Id ? "⏳" : "🔄")
+                                </button>
+                            </div>
+                        </div>
                     }
                 }
             }
@@ -113,6 +141,14 @@
 
             @if (UserState.IsLoggedIn)
             {
+                @if (CanCreateSetlist)
+                {
+                    <button class="p1-nav-item" @onclick="OpenCreateSetlistModal">
+                        <span class="nav-icon">🗂️</span>
+                        <span class="nav-label">New Setlist</span>
+                    </button>
+                }
+
                 <button class="p1-nav-item" @onclick="OpenAddModal">
                     <span class="nav-icon">➕</span>
                     <span class="nav-label">Add Song</span>
@@ -231,7 +267,51 @@
          PANEL 3 — Song Detail / Lyrics
     ═══════════════════════════════════════════════════ -->
     <div class="panel-3 @(mobilePanelIndex == 2 ? "mobile-show" : "mobile-hide")">
-        @if (selectedSong is null)
+        @if (selectedSetlist is not null && selectedSong is null)
+        {
+            <div class="p3-empty">
+                <div class="p3-empty-icon">📄</div>
+                <p><strong>@selectedSetlist.Name</strong></p>
+                <p>@SetlistSongCount songs • ✨ @SetlistNewCount New • 🕰️ @SetlistOldCount Old</p>
+                <p>Select a song from Panel 2 to view lyrics</p>
+
+                @if (CanModifySelectedSetlist)
+                {
+                    <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:10px;">
+                        <button class="action-btn" @onclick="OpenEditSetlistModal">✏️ Edit Setlist</button>
+                        <button class="action-btn" @onclick="DeleteSelectedSetlist">🗑️ Delete Setlist</button>
+                    </div>
+                }
+
+                @if (SetlistSongCount > 0)
+                {
+                    <div style="width:100%; max-width:640px; text-align:left; margin-top:10px;">
+                        @if (SetlistNewSongs.Count > 0)
+                        {
+                            <p><strong>✨ New (@SetlistNewSongs.Count)</strong></p>
+                            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                                @foreach (var song in SetlistNewSongs)
+                                {
+                                    <button class="action-btn" @onclick='async () => await SelectSong(song.Id)'>@song.Title</button>
+                                }
+                            </div>
+                        }
+
+                        @if (SetlistOldSongs.Count > 0)
+                        {
+                            <p><strong>🕰️ Old (@SetlistOldSongs.Count)</strong></p>
+                            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                @foreach (var song in SetlistOldSongs)
+                                {
+                                    <button class="action-btn" @onclick='async () => await SelectSong(song.Id)'>@song.Title</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else if (selectedSong is null)
         {
             <div class="p3-empty">
                 <div class="p3-empty-icon">🎵</div>
@@ -494,6 +574,34 @@
     </div>
 }
 
+
+@if (showSetlistModal)
+{
+    <div class="song-modal-overlay" @onclick="CloseSetlistModal"></div>
+    <div class="song-modal-container" role="dialog" aria-modal="true">
+        <div class="song-modal-header">
+            <h3>@(isEditSetlistModal ? "✏️ Edit Setlist" : "🗂️ New Setlist")</h3>
+            <button class="song-modal-close" @onclick="CloseSetlistModal">✕</button>
+        </div>
+
+        <div class="song-modal-body">
+            @if (setlistError != null)
+            {
+                <div class="form-error">⚠️ @setlistError</div>
+            }
+
+            <div class="form-group"><label>Name *</label><input @bind="setlistName" class="form-input" /></div>
+            <div class="form-group"><label>Description</label><textarea @bind="setlistDescription" class="form-textarea" rows="4"></textarea></div>
+        </div>
+
+        <div class="song-modal-actions">
+            <button @onclick="CloseSetlistModal" class="btn-cancel-edit">Cancel</button>
+            <button @onclick="SaveSetlistFromModal" class="btn-save-song" disabled="@isSetlistSaving">
+                @(isSetlistSaving ? "Saving..." : "💾 Save")
+            </button>
+        </div>
+    </div>
+}
 <!-- ─────────────── STYLES ─────────────── -->
 <style>
     /* ── Layout ── */
@@ -589,6 +697,30 @@
         font-weight: 500; transition: all 0.15s; margin-bottom: 2px;
     }
     .p1-nav-item:hover { background: #334155; color: #f1f5f9; }
+    .p1-nav-child-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        background: none;
+        border: none;
+        color: #a8b5c7;
+        padding: 9px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        text-align: left;
+        font-size: 0.84rem;
+        font-weight: 500;
+        transition: all 0.15s ease;
+    }
+    .p1-nav-child-item:hover { background: #334155; color: #f8fafc; }
+    .shell.theme-light .p1-nav-child-item {
+        color: #475569;
+    }
+    .shell.theme-light .p1-nav-child-item:hover {
+        background: #cbd5e1;
+        color: #0f172a;
+    }
     .nav-active { background: #3b82f6 !important; color: white !important; }
     .nav-icon { font-size: 1rem; width: 20px; flex-shrink: 0; }
     .nav-label { flex: 1; }
@@ -612,6 +744,61 @@
     .p1-user-info { display: flex; flex-direction: column; min-width: 0; }
     .p1-username { font-size: 0.85rem; font-weight: 600; color: #f1f5f9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .admin-dot { font-size: 0.65rem; color: #f87171; font-weight: 700; }
+    .setlist-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 2px;
+    }
+    .setlist-row .p1-nav-child-item {
+        flex: 1;
+        margin-bottom: 0;
+    }
+    .setlist-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .setlist-icon-btn {
+        width: 28px;
+        height: 28px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 8px;
+        background: transparent;
+        color: #cbd5e1;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+    .setlist-icon-btn:hover {
+        background: #334155;
+        color: #ffffff;
+        border-color: #60a5fa;
+    }
+    .setlist-icon-btn.danger:hover {
+        background: #7f1d1d;
+        border-color: #ef4444;
+        color: #fecaca;
+    }
+    .shell.theme-light .setlist-icon-btn {
+        background: #f8fafc;
+        color: #475569;
+        border-color: #cbd5e1;
+    }
+    .shell.theme-light .setlist-icon-btn:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+        border-color: #3b82f6;
+    }
+    .shell.theme-light .setlist-icon-btn.danger:hover {
+        background: #fee2e2;
+        border-color: #ef4444;
+        color: #b91c1c;
+    }
 
     /* ── Panel 2 ── */
     .panel-2 {
@@ -872,6 +1059,7 @@
     private List<SetlistShellItem> globalSetlists = new();
     private List<SetlistShellItem> mySetlists = new();
     private List<SetlistShellItem> smartSetlists = new();
+    private SetlistResponse? selectedSetlist;
 
     private string activeSection = "all";
     private int? selectedSongId;
@@ -893,6 +1081,8 @@
     private List<SongItem> suggestedSongs = new();
     private HashSet<string> expandedSetlistFolders = new() { "setlists-global", "setlists-my", "setlists-smart" };
     private string? selectedSetlistShellId;
+    private bool isSmartSetlistSyncing;
+    private string? syncingSmartSetlistId;
 
     private const string PrefThemeKey = "oldnew:shell:theme";
     private const string PrefFontSizeKey = "oldnew:shell:fontSize";
@@ -925,6 +1115,12 @@
     private SongFormModel newSong = new();
     private bool showSongModal = false;
     private bool isEditModal = false;
+    private bool showSetlistModal = false;
+    private bool isEditSetlistModal = false;
+    private bool isSetlistSaving = false;
+    private string? setlistError;
+    private string setlistName = "";
+    private string? setlistDescription;
 
     private static readonly string[] MusicKeys =
         { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B",
@@ -937,13 +1133,23 @@
     private int OldTabCount => GetSectionBase().Count(s => s.Category == "Old");
     private int AllTabCount => GetSectionBase().Count();
     private bool HasFilters => !string.IsNullOrEmpty(filterKey);
+    private int SetlistSongCount => GetSetlistSongs().Count();
+    private int SetlistNewCount => GetSetlistSongs().Count(s => s.Category == "New");
+    private int SetlistOldCount => GetSetlistSongs().Count(s => s.Category == "Old");
+    private List<SongItem> SetlistNewSongs => GetSetlistSongs().Where(s => s.Category == "New").OrderBy(s => s.Title).ToList();
+    private List<SongItem> SetlistOldSongs => GetSetlistSongs().Where(s => s.Category == "Old").OrderBy(s => s.Title).ToList();
+    private bool IsSmartSetlistContext => activeSection == "setlists-smart";
+    private bool CanCreateSetlist => UserState.IsLoggedIn && (activeSection == "setlists-my" || (activeSection == "setlists-global" && UserState.IsAdmin));
+    private bool CanModifySelectedSetlist => selectedSetlist is not null && CanModifySetlistInSection(activeSection);
+    private bool CanModifySetlistInSection(string section) =>
+        section == "setlists-my" || (section == "setlists-global" && UserState.IsAdmin);
 
     private string SectionTitle => activeSection switch
     {
         "favorites" => "❤️ Favorites",
-        "setlists-global" => "🌍 Global Setlists",
-        "setlists-my" => "📋 My Setlists",
-        "setlists-smart" => "🧠 Smart Setlists",
+        "setlists-global" => selectedSetlist is null ? "🌍 Global Setlists" : $"📄 {selectedSetlist.Name}",
+        "setlists-my" => selectedSetlist is null ? "📋 My Setlists" : $"📄 {selectedSetlist.Name}",
+        "setlists-smart" => selectedSetlist is null ? "🧠 Smart Setlists" : $"📄 {selectedSetlist.Name}",
         _ => "🎵 All Songs"
     };
 
@@ -1074,13 +1280,29 @@
             expandedSetlistFolders.Remove(section);
     }
 
-    private void SelectSetlistFolderItem(string section, string setlistId)
+    private async Task SelectSetlistFolderItem(string section, string setlistId)
     {
         activeSection = section;
         selectedSetlistShellId = setlistId;
+        selectedSong = null;
+        selectedSongId = null;
+        transposeSteps = 0;
+        suggestedDrawerOpen = false;
+        suggestedSongs = new();
         mobilePanelIndex = 1;
-        _ = SavePreferenceAsync(PrefSectionKey, section);
-        _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString());
+
+        try
+        {
+            selectedSetlist = await Http.GetFromJsonAsync<SetlistResponse>($"api/setlists/{setlistId}");
+        }
+        catch
+        {
+            selectedSetlist = null;
+        }
+
+        ApplyFilters();
+        await SavePreferenceAsync(PrefSectionKey, section);
+        await SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString());
     }
 
     private async Task SelectSection(string section, bool persistState = true)
@@ -1089,6 +1311,7 @@
         selectedSong = null;
         selectedSongId = null;
         selectedSetlistShellId = null;
+        selectedSetlist = null;
         transposeSteps = 0;
         suggestedDrawerOpen = false;
         suggestedSongs = new();
@@ -1144,8 +1367,18 @@
         return activeSection switch
         {
             "favorites" => allSongs.Where(s => userData.Favorites.Contains(s.Id)),
+            "setlists-global" or "setlists-my" or "setlists-smart" => GetSetlistSongs(),
             _ => allSongs
         };
+    }
+
+    private IEnumerable<SongItem> GetSetlistSongs()
+    {
+        if (selectedSetlist?.Songs is null || selectedSetlist.Songs.Count == 0)
+            return Enumerable.Empty<SongItem>();
+
+        var setlistSongIds = selectedSetlist.Songs.Distinct().ToHashSet();
+        return allSongs.Where(s => setlistSongIds.Contains(s.Id));
     }
 
     private void ApplyFilters()
@@ -1404,6 +1637,199 @@
     private void MobileGoToPanel1() { mobilePanelIndex = 0; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
     private void MobileGoToPanel2() { mobilePanelIndex = 1; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
 
+    private void OpenCreateSetlistModal()
+    {
+        if (!CanCreateSetlist) return;
+        isEditSetlistModal = false;
+        setlistName = "";
+        setlistDescription = "";
+        setlistError = null;
+        showSetlistModal = true;
+    }
+
+    private void OpenEditSetlistModal()
+    {
+        if (!CanModifySelectedSetlist || selectedSetlist is null) return;
+        isEditSetlistModal = true;
+        setlistName = selectedSetlist.Name;
+        setlistDescription = selectedSetlist.Description;
+        setlistError = null;
+        showSetlistModal = true;
+    }
+
+    private void CloseSetlistModal()
+    {
+        showSetlistModal = false;
+        setlistError = null;
+        isSetlistSaving = false;
+    }
+
+    private async Task SaveSetlistFromModal()
+    {
+        setlistError = null;
+        if (string.IsNullOrWhiteSpace(setlistName))
+        {
+            setlistError = "Setlist name is required.";
+            return;
+        }
+
+        isSetlistSaving = true;
+        try
+        {
+            if (isEditSetlistModal && selectedSetlist is not null)
+            {
+                var updateDto = new
+                {
+                    Name = setlistName.Trim(),
+                    Description = setlistDescription,
+                    Songs = selectedSetlist.Songs,
+                    Conditions = selectedSetlist.Conditions,
+                    IsPublic = selectedSetlist.IsPublic
+                };
+
+                var updateResp = await Http.PutAsJsonAsync($"api/setlists/{selectedSetlist.Id}", updateDto);
+                if (!updateResp.IsSuccessStatusCode)
+                {
+                    setlistError = $"Save failed ({updateResp.StatusCode}).";
+                    return;
+                }
+            }
+            else
+            {
+                var type = activeSection == "setlists-global" ? "global" : "my";
+                var createDto = new
+                {
+                    Name = setlistName.Trim(),
+                    Description = setlistDescription,
+                    Type = type,
+                    Songs = new List<int>(),
+                    Conditions = (Dictionary<string, string>?)null,
+                    IsPublic = type == "global"
+                };
+
+                var createResp = await Http.PostAsJsonAsync("api/setlists", createDto);
+                if (!createResp.IsSuccessStatusCode)
+                {
+                    setlistError = $"Create failed ({createResp.StatusCode}).";
+                    return;
+                }
+
+                var created = await createResp.Content.ReadFromJsonAsync<SetlistResponse>();
+                await LoadSetlistsAsync();
+                if (created is not null)
+                {
+                    var createdSection = created.Type == "global" ? "setlists-global" : "setlists-my";
+                    await SelectSetlistFolderItem(createdSection, created.Id);
+                }
+
+                CloseSetlistModal();
+                return;
+            }
+
+            await LoadSetlistsAsync();
+            if (selectedSetlistShellId is not null)
+                await SelectSetlistFolderItem(activeSection, selectedSetlistShellId);
+
+            CloseSetlistModal();
+        }
+        catch (Exception ex)
+        {
+            setlistError = ex.Message;
+        }
+        finally
+        {
+            isSetlistSaving = false;
+        }
+    }
+
+    private async Task DeleteSelectedSetlist()
+    {
+        if (!CanModifySelectedSetlist || selectedSetlist is null) return;
+
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/setlists/{selectedSetlist.Id}");
+            if (!resp.IsSuccessStatusCode)
+            {
+                setlistError = $"Delete failed ({resp.StatusCode}).";
+                return;
+            }
+
+            await LoadSetlistsAsync();
+            selectedSetlist = null;
+            selectedSetlistShellId = null;
+            selectedSong = null;
+            selectedSongId = null;
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            setlistError = ex.Message;
+        }
+    }
+    private async Task OpenEditSetlistModalFor(string section, string setlistId)
+    {
+        if (!CanModifySetlistInSection(section)) return;
+
+        await SelectSetlistFolderItem(section, setlistId);
+        OpenEditSetlistModal();
+    }
+
+    private async Task DeleteSetlistFromPanel1(string section, string setlistId)
+    {
+        if (!CanModifySetlistInSection(section)) return;
+
+        var confirmed = await JS.InvokeAsync<bool>("eval", "confirm('Delete this setlist?')");
+        if (!confirmed) return;
+
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/setlists/{setlistId}");
+            if (!resp.IsSuccessStatusCode)
+            {
+                setlistError = $"Delete failed ({resp.StatusCode}).";
+                return;
+            }
+
+            await LoadSetlistsAsync();
+            if (selectedSetlistShellId == setlistId)
+            {
+                selectedSetlist = null;
+                selectedSetlistShellId = null;
+                selectedSong = null;
+                selectedSongId = null;
+                ApplyFilters();
+            }
+        }
+        catch (Exception ex)
+        {
+            setlistError = ex.Message;
+        }
+    }
+
+    private async Task SyncSmartSetlist(string setlistId)
+    {
+        if (isSmartSetlistSyncing) return;
+
+        isSmartSetlistSyncing = true;
+        syncingSmartSetlistId = setlistId;
+        setlistError = null;
+
+        try
+        {
+            await LoadSetlistsAsync();
+            await SelectSetlistFolderItem("setlists-smart", setlistId);
+        }
+        catch (Exception ex)
+        {
+            setlistError = ex.Message;
+        }
+        finally
+        {
+            isSmartSetlistSyncing = false;
+            syncingSmartSetlistId = null;
+        }
+    }
     private void OpenAddModal()
     {
         newSong = new();
@@ -1455,7 +1881,7 @@
     }
 
     private record SetlistShellItem(string Id, string Name, string Type, int SongCount);
-    private record SetlistResponse(string Id, string Name, string? Description, string Type, string? OwnerUserId, List<int> Songs, Dictionary<string, string>? Conditions, bool IsPublic, DateTime CreatedAt, DateTime UpdatedAt);
+    private record SetlistResponse(string Id, string Name, string? Description, string Type, string? OwnerUserId, List<int> Songs, Dictionary<string, string>? Conditions, bool IsPublic, DateTime CreatedAt, DateTime? UpdatedAt);
     private record SongItem(int Id, string Title, string Category, string Key, List<string> Genres, string? Singer, string? Mood);
     private record SongDetail(int Id, string Title, string Category, string Key, string Tempo, string Time, string Taal, List<string> Genres, string Lyrics, string? Singer, string? Mood, List<string>? Tags, string? YoutubeLink, string? SpotifyLink, string? Notes, bool IsPublic, int ViewCount, DateTime CreatedAt, DateTime? UpdatedAt);
 
@@ -1483,6 +1909,35 @@
         public string? SpotifyLink { get; set; }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

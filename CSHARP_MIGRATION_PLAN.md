@@ -732,63 +732,30 @@ Setlists will now be migrated as first-class entities and integrated into the Te
 - [x] Render Panel 1 setlist folders
 - [x] Render child setlists under each folder
 - [x] Select a child setlist from Panel 1
-- [x] Show selected setlist songs in Panel 2
 - [x] Show selected setlist overview in Panel 3
+- [x] Show selected setlist songs in Panel 2
 - [x] Group selected setlist songs into New / Old in Panel 3
 - [x] Make all Panel 2 dependencies react correctly to selected setlist context
-- [ ] Add create/edit/delete dialogs for setlists (Global/My first; Smart separate)
-- [x] Add add/remove song to a specific setlist (Global/My only)
+- [x] Add create/edit/delete dialogs for setlists (Global/My first; Smart separate)
+- [x] Move setlist edit/update/delete actions to Panel 1 icon controls per setlist row (Global/My)
+- [x] Add Smart setlist sync songs action on Panel 1
+- [ ] Add add/remove song to a specific setlist (Global/My only)
 - [ ] Add setlist persistence/restoration for selected child setlist
 - [ ] De-emphasize legacy `NewSetlist` / `OldSetlist` storage after migration path is complete
 - [ ] Mirror setlist shell behavior in MAUI shell
 
-### Smart Setlist Rule
-Smart setlists use an **automated mechanism** and do **not** support manual add/remove like Global and My setlists.
-Smart setlists also keep their own separate create/edit experience driven by automation/conditions, so the current CRUD dialogs apply first to:
-- **Global Setlists**
-- **My Setlists**
+### Current Stable Shell Notes
+The current stable `SongShell.razor` already includes:
+- Panel 1 folder hierarchy for Global / My / Smart setlists
+- child setlist rendering under each folder
+- child setlist selection state in Panel 1
+- selected setlist document loading
+- Panel 2 setlist-aware song list context (shows selected setlist songs)
+- Panel 3 selected setlist overview
+- Panel 3 New/Old grouped setlist song quick-select
+- Panel 1 icon-only setlist actions for Global/My rows (edit/delete)
+- Panel 1 Smart setlist sync songs action
+- CSS polish pass for setlist rows and icon actions (light/dark hover states)
 
----
-
-## Phase 10B: Setlist Folder Hierarchy in Panel 1 (STARTED)
-
-### Requirement
-Setlists must follow a **folder hierarchy** in the Teams-style shell.
-
-### Panel 1 Setlist Structure
-Panel 1 should not treat `Global Setlists`, `My Setlists`, and `Smart Setlists` as individual setlists.
-Instead, they are **folder/group nodes** that contain user-created setlists under them.
-
-Structure:
-- **Global Setlists** (folder)
-  - Setlist A
-  - Setlist B
-- **My Setlists** (folder)
-  - Setlist C
-  - Setlist D
-- **Smart Setlists** (folder)
-  - Setlist E
-  - Setlist F
-
-### UX Interpretation
-- The folder nodes live in **Panel 1**
-- The created setlists also appear in **Panel 1** as nested child items under the folder
-- Panel 1 therefore contains both:
-  - top-level workspace sections
-  - setlist folders
-  - actual setlist entries beneath each folder
-
-### Implementation Rule
-- `Global Setlists`, `My Setlists`, and `Smart Setlists` are not leaf items
-- They are expandable/collapsibile containers
-- The actual setlist documents loaded from MongoDB are rendered beneath them
-- This mirrors the original application more closely than the earlier fixed-bucket model
-
-### Status
-- ✅ Requirement documented
-- ✅ Reader aligned to original MongoDB setlist collections
-- ✅ Panel 1 nested folder rendering
-- ✅ Setlist selection behavior
-- ⏳ Panel 2 dependency alignment for selected setlist
-- ✅ Panel 3 integration for selected setlist
-- ✅ Panel 3 New/Old grouping for selected setlist
+The next safe reconstruction step is:
+- add/remove selected song to selected Global/My setlist from shell actions (Smart stays automated/read-only)
