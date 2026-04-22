@@ -180,6 +180,10 @@
             <div class="p2-title-row">
                 <button class="p2-back-btn" @onclick="MobileGoToPanel1" title="Back">‹</button>
                 <h2 class="p2-title">@SectionTitle</h2>
+                @if (CanManageSongsInSelectedSetlist)
+                {
+                    <button class="p2-manage-btn" title="Manage songs in setlist" @onclick="OpenManageSongsModal">🎵 Manage</button>
+                }
             </div>
 
             <div class="p2-search-row">
@@ -274,14 +278,6 @@
                 <p><strong>@selectedSetlist.Name</strong></p>
                 <p>@SetlistSongCount songs • ✨ @SetlistNewCount New • 🕰️ @SetlistOldCount Old</p>
                 <p>Select a song from Panel 2 to view lyrics</p>
-
-                @if (CanModifySelectedSetlist)
-                {
-                    <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:10px;">
-                        <button class="action-btn" @onclick="OpenEditSetlistModal">✏️ Edit Setlist</button>
-                        <button class="action-btn" @onclick="DeleteSelectedSetlist">🗑️ Delete Setlist</button>
-                    </div>
-                }
 
                 @if (SetlistSongCount > 0)
                 {
@@ -602,6 +598,120 @@
         </div>
     </div>
 }
+
+@if (showManageSongsModal)
+{
+    <div class="song-modal-overlay" @onclick="CloseManageSongsModal"></div>
+    <div class="song-modal-container manage-songs-modal" role="dialog" aria-modal="true">
+        <div class="song-modal-header">
+            <h3>🎵 Manage Songs — @selectedSetlist?.Name</h3>
+            <button class="song-modal-close" @onclick="CloseManageSongsModal">✕</button>
+        </div>
+
+        <div class="manage-songs-body">
+            @if (manageSongsError != null)
+            {
+                <div class="form-error">⚠️ @manageSongsError</div>
+            }
+
+            <!-- Current setlist songs -->
+            <div class="manage-section-label">
+                <span>IN SETLIST <span class="manage-count-badge">@manageSongsList.Count</span></span>
+            </div>
+            @if (manageSongsList.Count == 0)
+            {
+                <div class="manage-empty-hint">No songs yet. Add some below.</div>
+            }
+            else
+            {
+                <div class="manage-setlist-songs">
+                    @for (int i = 0; i < manageSongsList.Count; i++)
+                    {
+                        var idx = i;
+                        var song = allSongs.FirstOrDefault(s => s.Id == manageSongsList[idx]);
+                        if (song is null) continue;
+                        <div class="manage-song-row">
+                            <div class="manage-reorder-btns">
+                                <button class="manage-order-btn" title="Move up" disabled="@(idx == 0)"
+                                        @onclick="() => ManageSongsMoveUp(idx)">↑</button>
+                                <button class="manage-order-btn" title="Move down" disabled="@(idx == manageSongsList.Count - 1)"
+                                        @onclick="() => ManageSongsMoveDown(idx)">↓</button>
+                            </div>
+                            <div class="manage-song-info">
+                                <span class="manage-song-title">@song.Title</span>
+                                @if (!string.IsNullOrEmpty(song.Singer))
+                                {
+                                    <span class="manage-song-meta">🎤 @song.Singer</span>
+                                }
+                            </div>
+                            <div class="manage-song-right">
+                                @if (!string.IsNullOrEmpty(song.Key))
+                                {
+                                    <span class="key-pill">@song.Key</span>
+                                }
+                                <span class="cat-dot @(song.Category == "Old" ? "dot-old" : "dot-new")"></span>
+                                <button class="manage-remove-btn" title="Remove from setlist"
+                                        @onclick="() => ManageSongsRemove(song.Id)">🗑️</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Add songs section -->
+            <div class="manage-section-label" style="margin-top:14px;">
+                <span>ADD SONGS</span>
+            </div>
+            <input type="search" placeholder="🔍 Search to add..."
+                   class="p2-search manage-add-search"
+                   @bind="manageSongsSearchText" @bind:event="oninput" />
+
+            <div class="manage-add-list">
+                @{
+                    var available = allSongs
+                        .Where(s => !manageSongsList.Contains(s.Id))
+                        .Where(s => string.IsNullOrEmpty(manageSongsSearchText) ||
+                                    s.Title.Contains(manageSongsSearchText, StringComparison.OrdinalIgnoreCase) ||
+                                    (s.Singer?.Contains(manageSongsSearchText, StringComparison.OrdinalIgnoreCase) ?? false))
+                        .OrderBy(s => s.Title)
+                        .ToList();
+                }
+                @if (!available.Any())
+                {
+                    <div class="manage-empty-hint">No songs match your search.</div>
+                }
+                @foreach (var song in available)
+                {
+                    <div class="manage-song-row manage-add-row">
+                        <div class="manage-song-info">
+                            <span class="manage-song-title">@song.Title</span>
+                            @if (!string.IsNullOrEmpty(song.Singer))
+                            {
+                                <span class="manage-song-meta">🎤 @song.Singer</span>
+                            }
+                        </div>
+                        <div class="manage-song-right">
+                            @if (!string.IsNullOrEmpty(song.Key))
+                            {
+                                <span class="key-pill">@song.Key</span>
+                            }
+                            <span class="cat-dot @(song.Category == "Old" ? "dot-old" : "dot-new")"></span>
+                            <button class="manage-add-btn" title="Add to setlist"
+                                    @onclick="() => ManageSongsAdd(song.Id)">➕</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="song-modal-actions">
+            <button @onclick="CloseManageSongsModal" class="btn-cancel-edit">Cancel</button>
+            <button @onclick="SaveManageSongs" class="btn-save-song" disabled="@isManageSongsSaving">
+                @(isManageSongsSaving ? "Saving..." : "💾 Save")
+            </button>
+        </div>
+    </div>
+}
 <!-- ─────────────── STYLES ─────────────── -->
 <style>
     /* ── Layout ── */
@@ -814,7 +924,101 @@
         font-size: 1.4rem; cursor: pointer; color: #3b82f6;
         padding: 0 6px; line-height: 1;
     }
-    .p2-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b; }
+    .p2-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b; flex: 1; }
+    .p2-manage-btn {
+        flex-shrink: 0;
+        background: #eff6ff; color: #2563eb;
+        border: 1.5px solid #bfdbfe;
+        border-radius: 8px; padding: 5px 10px;
+        font-size: 0.8rem; font-weight: 600;
+        cursor: pointer; transition: all 0.15s;
+        white-space: nowrap;
+    }
+    .p2-manage-btn:hover { background: #dbeafe; border-color: #3b82f6; }
+    .shell.theme-dark .p2-manage-btn { background: #1e3a8a; color: #93c5fd; border-color: #2563eb; }
+    .shell.theme-dark .p2-manage-btn:hover { background: #1d4ed8; color: #fff; }
+
+    /* ── Manage Songs Modal ── */
+    .manage-songs-modal {
+        width: 600px;
+        max-width: 96vw;
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .manage-songs-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .manage-section-label {
+        font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+        color: #64748b; text-transform: uppercase;
+        padding: 6px 0 4px;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .manage-count-badge {
+        background: #eff6ff; color: #2563eb;
+        border-radius: 8px; padding: 1px 7px;
+        font-size: 0.72rem;
+    }
+    .manage-empty-hint { color: #94a3b8; font-size: 0.85rem; padding: 6px 0 8px; }
+    .manage-setlist-songs {
+        display: flex; flex-direction: column; gap: 4px;
+        border: 1.5px solid #e2e8f0; border-radius: 10px;
+        padding: 6px; background: #f8fafc;
+        max-height: 220px; overflow-y: auto;
+    }
+    .shell.theme-dark .manage-setlist-songs { background: #1f2937; border-color: #374151; }
+    .manage-add-list {
+        display: flex; flex-direction: column; gap: 4px;
+        border: 1.5px solid #e2e8f0; border-radius: 10px;
+        padding: 6px; background: #f8fafc;
+        max-height: 220px; overflow-y: auto;
+    }
+    .shell.theme-dark .manage-add-list { background: #1f2937; border-color: #374151; }
+    .manage-song-row {
+        display: flex; align-items: center; gap: 8px;
+        padding: 7px 8px; border-radius: 8px;
+        border: 1px solid transparent;
+        transition: background 0.1s;
+    }
+    .manage-song-row:hover { background: #f0f9ff; border-color: #e0f2fe; }
+    .shell.theme-dark .manage-song-row:hover { background: #1e3a8a; border-color: #2563eb; }
+    .manage-reorder-btns { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+    .manage-order-btn {
+        background: none; border: 1px solid #e2e8f0;
+        border-radius: 4px; width: 22px; height: 20px;
+        font-size: 0.7rem; cursor: pointer; color: #64748b;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.12s; padding: 0;
+    }
+    .manage-order-btn:hover:not(:disabled) { background: #e2e8f0; color: #1e293b; }
+    .manage-order-btn:disabled { opacity: 0.3; cursor: default; }
+    .manage-song-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .manage-song-title { font-size: 0.88rem; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .shell.theme-dark .manage-song-title { color: #e2e8f0; }
+    .manage-song-meta { font-size: 0.74rem; color: #94a3b8; }
+    .manage-song-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .manage-remove-btn {
+        background: none; border: 1px solid #fecaca;
+        border-radius: 6px; padding: 3px 7px;
+        cursor: pointer; font-size: 0.8rem; color: #ef4444;
+        transition: all 0.12s;
+    }
+    .manage-remove-btn:hover { background: #fee2e2; }
+    .manage-add-btn {
+        background: none; border: 1px solid #bbf7d0;
+        border-radius: 6px; padding: 3px 7px;
+        cursor: pointer; font-size: 0.8rem; color: #16a34a;
+        transition: all 0.12s;
+    }
+    .manage-add-btn:hover { background: #dcfce7; }
+    .manage-add-search { margin: 4px 0 6px; }
+
     .p2-search {
         width: 100%; padding: 9px 12px; border: 2px solid #e2e8f0;
         border-radius: 10px; font-size: 0.9rem; margin-bottom: 8px;
@@ -850,7 +1054,7 @@
     .p2-tab-count {
         background: rgba(59,130,246,0.1); color: #3b82f6;
         border-radius: 8px; padding: 2px 8px;
-        font-size: 0.72rem; font-weight: 600;
+        font-size: 0.72rem, font-weight: 600;
         margin-left: 6px;
     }
     .p2-body { flex: 1; overflow-y: auto; }
@@ -858,12 +1062,13 @@
         display: flex; justify-content: space-between; align-items: center;
         padding: 12px 14px; cursor: pointer; transition: background 0.1s;
         border-bottom: 1px solid #f8fafc;
+        overflow: hidden;
     }
     .song-row:hover { background: #f0f9ff; }
     .song-row-active { background: #eff6ff !important; border-left: 3px solid #3b82f6; }
-    .song-row-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .song-row-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; overflow: hidden; }
     .song-row-title { font-weight: 600; color: #1e293b; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .song-row-singer { font-size: 0.77rem; color: #94a3b8; }
+    .song-row-singer { font-size: 0.77rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .song-row-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .key-pill { background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; }
     .cat-dot { width: 7px; height: 7px; border-radius: 50%; }
@@ -872,8 +1077,81 @@
     .p2-loading, .p2-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 50px 20px; color: #94a3b8; gap: 10px; }
     .p2-clear-all { background: none; border: 1px solid #e2e8f0; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: #64748b; }
 
-    /* ── Panel 3 ── */
     .panel-3 { background: #fafbfc; overflow-y: auto; position: relative; }
+    .p3-empty, .p3-loading {
+        min-height: 100%; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; color: #94a3b8; padding: 24px;
+        text-align: center;
+    }
+    .p3-empty-icon { font-size: 2rem; margin-bottom: 10px; }
+    .p3-content { padding: 18px; max-width: 920px; }
+    .p3-topbar {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 12px; margin-bottom: 14px; position: sticky; top: 0;
+        background: inherit; padding-bottom: 8px; z-index: 5;
+    }
+    .p3-back-btn {
+        display: none; background: none; border: none;
+        font-size: 0.95rem; font-weight: 600; color: #3b82f6; cursor: pointer;
+    }
+    .p3-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .action-btn {
+        border: 1px solid #dbeafe; background: white; color: #2563eb;
+        border-radius: 10px; padding: 7px 10px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    }
+    .action-btn:hover { background: #eff6ff; }
+    .action-fav-on, .action-set-on, .action-scroll-on { background: #dbeafe; border-color: #93c5fd; }
+    .action-edit { border-color: #cbd5e1; color: #334155; }
+    .p3-meta { margin-bottom: 16px; }
+    .p3-badges, .genre-chips, .tags-row, .p3-info-chips {
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    }
+    .p3-badges { margin-bottom: 10px; }
+    .cat-badge, .mood-badge, .info-chip, .genre-chip, .tag-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+    }
+    .badge-old { background: #fff7ed; color: #c2410c; }
+    .badge-new { background: #ecfdf5; color: #15803d; }
+    .mood-badge { background: #ede9fe; color: #6d28d9; }
+    .p3-title { margin: 0 0 8px; font-size: 2rem; line-height: 1.1; color: #0f172a; }
+    .p3-singer { margin: 0 0 12px; color: #475569; }
+    .info-chip { background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; }
+    .genre-chip { background: #eff6ff; color: #1d4ed8; }
+    .transpose-bar {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        padding: 10px 12px; background: #fff; border: 1px solid #e2e8f0;
+        border-radius: 12px; margin-bottom: 14px;
+    }
+    .transpose-label { font-weight: 700; color: #334155; }
+    .transpose-btn, .btn-reset-t {
+        border: 1px solid #cbd5e1; background: white; color: #334155;
+        border-radius: 8px; padding: 4px 10px; cursor: pointer; font-weight: 700;
+    }
+    .transpose-display { min-width: 90px; color: #64748b; font-size: 0.85rem; }
+    .ext-links { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .link-yt, .link-sp {
+        text-decoration: none; font-weight: 700; font-size: 0.85rem;
+        padding: 7px 10px; border-radius: 10px;
+    }
+    .link-yt { background: #fef2f2; color: #dc2626; }
+    .link-sp { background: #ecfdf5; color: #16a34a; }
+    .lyrics-section, .notes-section {
+        background: rgba(255,255,255,0.7); border: 1px solid #e2e8f0;
+        border-radius: 14px; padding: 16px; margin-bottom: 14px;
+    }
+    .section-heading { margin: 0 0 12px; font-size: 1rem; color: #0f172a; }
+    .lyrics-body {
+        margin: 0; white-space: pre-wrap; word-break: break-word; line-height: 1.7;
+        font-family: inherit; color: #1e293b; overflow-x: auto;
+    }
+    .notes-body { margin: 0; color: #334155; white-space: pre-wrap; }
+    .no-content { color: #94a3b8; }
+    .tags-row { margin-top: 8px; }
+    .tags-label { color: #64748b; }
+    .tag-chip { background: #f1f5f9; color: #334155; }
+    .chord-line { color: #1d4ed8; font-weight: 700; }
+    .inline-chord { color: #7c3aed; font-weight: 700; }
 
     .suggested-overlay {
         position: absolute; inset: 0; background: rgba(15, 23, 42, 0.45); z-index: 20;
@@ -909,8 +1187,6 @@
         to { transform: translateX(0); opacity: 1; }
     }
 
-    /* ── Chord highlighting ── */
-
     @@media (max-width: 700px) {
         .shell { grid-template-columns: 1fr; grid-template-rows: 1fr; height: 100dvh; }
         .panel-1, .panel-2, .panel-3 { grid-column: 1; grid-row: 1; }
@@ -931,7 +1207,6 @@
         }
     }
 
-    /* ── Song modals ── */
     .song-modal-overlay {
         position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 100;
     }
@@ -1037,7 +1312,6 @@
         font-size: 0.85rem;
     }
 
-    /* ── Misc ── */
     .skeleton {
         background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
         background-size: 400%;
@@ -1047,6 +1321,7 @@
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
     }
+
 </style>
 
 @code {
@@ -1115,12 +1390,19 @@
     private SongFormModel newSong = new();
     private bool showSongModal = false;
     private bool isEditModal = false;
+
     private bool showSetlistModal = false;
     private bool isEditSetlistModal = false;
     private bool isSetlistSaving = false;
     private string? setlistError;
     private string setlistName = "";
     private string? setlistDescription;
+
+    private bool showManageSongsModal = false;
+    private List<int> manageSongsList = new();
+    private string manageSongsSearchText = "";
+    private bool isManageSongsSaving = false;
+    private string? manageSongsError;
 
     private static readonly string[] MusicKeys =
         { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B",
@@ -1141,6 +1423,7 @@
     private bool IsSmartSetlistContext => activeSection == "setlists-smart";
     private bool CanCreateSetlist => UserState.IsLoggedIn && (activeSection == "setlists-my" || (activeSection == "setlists-global" && UserState.IsAdmin));
     private bool CanModifySelectedSetlist => selectedSetlist is not null && CanModifySetlistInSection(activeSection);
+    private bool CanManageSongsInSelectedSetlist => selectedSetlist is not null && CanModifySetlistInSection(activeSection) && !IsSmartSetlistContext;
     private bool CanModifySetlistInSection(string section) =>
         section == "setlists-my" || (section == "setlists-global" && UserState.IsAdmin);
 
@@ -1585,7 +1868,7 @@
     {
         if (FlatToSharp.TryGetValue(root, out var sharp)) root = sharp;
         var idx = Array.IndexOf(ChordRoots, root);
-        if (idx < 0) return root;
+        if ( idx < 0) return root;
         return ChordRoots[((idx + steps) % 12 + 12) % 12];
     }
 
@@ -1662,6 +1945,81 @@
         showSetlistModal = false;
         setlistError = null;
         isSetlistSaving = false;
+    }
+
+    private void OpenManageSongsModal()
+    {
+        if (!CanModifySelectedSetlist || selectedSetlist is null) return;
+        manageSongsList = new List<int>(selectedSetlist.Songs ?? new());
+        manageSongsSearchText = "";
+        manageSongsError = null;
+        isManageSongsSaving = false;
+        showManageSongsModal = true;
+    }
+
+    private void CloseManageSongsModal()
+    {
+        showManageSongsModal = false;
+        manageSongsError = null;
+    }
+
+    private void ManageSongsAdd(int songId)
+    {
+        if (!manageSongsList.Contains(songId))
+            manageSongsList.Add(songId);
+    }
+
+    private void ManageSongsRemove(int songId)
+    {
+        manageSongsList.Remove(songId);
+    }
+
+    private void ManageSongsMoveUp(int index)
+    {
+        if (index <= 0 || index >= manageSongsList.Count) return;
+        (manageSongsList[index - 1], manageSongsList[index]) = (manageSongsList[index], manageSongsList[index - 1]);
+    }
+
+    private void ManageSongsMoveDown(int index)
+    {
+        if (index < 0 || index >= manageSongsList.Count - 1) return;
+        (manageSongsList[index], manageSongsList[index + 1]) = (manageSongsList[index + 1], manageSongsList[index]);
+    }
+
+    private async Task SaveManageSongs()
+    {
+        if (!CanModifySelectedSetlist || selectedSetlist is null) return;
+        manageSongsError = null;
+        isManageSongsSaving = true;
+        try
+        {
+            var updateDto = new
+            {
+                Name = selectedSetlist.Name,
+                Description = selectedSetlist.Description,
+                Songs = manageSongsList,
+                Conditions = selectedSetlist.Conditions,
+                IsPublic = selectedSetlist.IsPublic
+            };
+            var resp = await Http.PutAsJsonAsync($"api/setlists/{selectedSetlist.Id}", updateDto);
+            if (!resp.IsSuccessStatusCode)
+            {
+                manageSongsError = $"Save failed ({resp.StatusCode}).";
+                return;
+            }
+            await LoadSetlistsAsync();
+            if (selectedSetlistShellId is not null)
+                await SelectSetlistFolderItem(activeSection, selectedSetlistShellId);
+            CloseManageSongsModal();
+        }
+        catch (Exception ex)
+        {
+            manageSongsError = ex.Message;
+        }
+        finally
+        {
+            isManageSongsSaving = false;
+        }
     }
 
     private async Task SaveSetlistFromModal()
@@ -1767,6 +2125,7 @@
             setlistError = ex.Message;
         }
     }
+
     private async Task OpenEditSetlistModalFor(string section, string setlistId)
     {
         if (!CanModifySetlistInSection(section)) return;
@@ -1830,6 +2189,7 @@
             syncingSmartSetlistId = null;
         }
     }
+
     private void OpenAddModal()
     {
         newSong = new();
