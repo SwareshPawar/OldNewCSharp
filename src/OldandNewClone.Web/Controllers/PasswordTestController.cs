@@ -86,7 +86,7 @@ public class PasswordTestController : ControllerBase
                 isAdmin = user.IsAdmin,
                 hasPasswordHash = !string.IsNullOrEmpty(user.PasswordHash),
                 passwordHashLength = user.PasswordHash?.Length ?? 0,
-                passwordHashPrefix = user.PasswordHash?.Substring(0, Math.Min(10, user.PasswordHash?.Length ?? 0))
+                passwordHashPrefix = user.PasswordHash?[..Math.Min(10, user.PasswordHash.Length)]
             });
         }
         catch (Exception ex)
@@ -120,7 +120,7 @@ public class PasswordTestController : ControllerBase
 
                 if (bsonUser != null)
                 {
-                    var passwordFromMongo = bsonUser.GetValue("password", BsonNull.Value).ToString();
+                    var passwordFromMongo = bsonUser.GetValue("password", BsonNull.Value).ToString() ?? string.Empty;
 
                     // Test with BCrypt.Net directly
                     var bcryptResult = BCrypt.Net.BCrypt.Verify(request.Password, passwordFromMongo);
@@ -129,7 +129,7 @@ public class PasswordTestController : ControllerBase
                     {
                         method = "Direct MongoDB + BCrypt.Net",
                         passwordHash = passwordFromMongo,
-                        hashPrefix = passwordFromMongo.Substring(0, Math.Min(20, passwordFromMongo.Length)),
+                        hashPrefix = passwordFromMongo[..Math.Min(20, passwordFromMongo.Length)],
                         bcryptNetVerify = bcryptResult,
                         message = bcryptResult ? "✅ Password matches!" : "❌ Password does not match"
                     });
@@ -151,7 +151,7 @@ public class PasswordTestController : ControllerBase
                 username = user.UserName,
                 email = user.Email,
                 passwordHashLength = user.PasswordHash?.Length ?? 0,
-                passwordHashPrefix = user.PasswordHash?.Substring(0, Math.Min(20, user.PasswordHash?.Length ?? 0)),
+                passwordHashPrefix = user.PasswordHash?[..Math.Min(20, user.PasswordHash.Length)],
                 iPasswordHasherResult = hasherResult.ToString(),
                 bcryptNetDirectResult = directBcryptResult,
                 bothMatch = hasherResult == PasswordVerificationResult.Success && directBcryptResult,
@@ -178,9 +178,9 @@ public class PasswordTestController : ControllerBase
             bcryptNetVersion = typeof(BCrypt.Net.BCrypt).Assembly.GetName().Version?.ToString(),
             testHash = hash,
             testVerify = verify,
-            hashPrefix = hash.Substring(0, 10),
+            hashPrefix = hash[..10],
             hashLength = hash.Length,
-            workFactor = BCrypt.Net.BCrypt.GenerateSalt(10).Substring(4, 2),
+            workFactor = BCrypt.Net.BCrypt.GenerateSalt(10)[4..6],
             note = "BCrypt hashes start with $2a$, $2b$, or $2y$"
         });
     }

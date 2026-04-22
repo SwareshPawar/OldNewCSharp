@@ -15,7 +15,7 @@ public class Setlist
         BsonObjectId oid => oid.Value.ToString(),
         BsonString s => s.Value,
         null => string.Empty,
-        _ => RawId.ToString()
+        _ => RawId.ToString() ?? string.Empty
     };
 
     [BsonIgnore]
@@ -85,7 +85,7 @@ public class Setlist
 
     [BsonIgnore]
     public Dictionary<string, string>? Conditions =>
-        ConditionsRaw?.Elements.ToDictionary(e => e.Name, e => e.Value.ToString());
+        ConditionsRaw?.Elements.ToDictionary(e => e.Name, e => e.Value.ToString() ?? string.Empty);
 
     [BsonIgnore]
     public DateTime CreatedAt => ParseDate(CreatedAtRaw);
