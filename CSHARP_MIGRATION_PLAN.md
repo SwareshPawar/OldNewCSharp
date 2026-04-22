@@ -739,9 +739,9 @@ Setlists will now be migrated as first-class entities and integrated into the Te
 - [x] Add create/edit/delete dialogs for setlists (Global/My first; Smart separate)
 - [x] Move setlist edit/update/delete actions to Panel 1 icon controls per setlist row (Global/My)
 - [x] Add Smart setlist sync songs action on Panel 1
-- [ ] Add add/remove song to a specific setlist (Global/My only)
-- [ ] Add setlist persistence/restoration for selected child setlist
-- [ ] De-emphasize legacy `NewSetlist` / `OldSetlist` storage after migration path is complete
+- [x] Add add/remove/reorder songs for a specific setlist (Global/My only) from Panel 2 via modal workflow
+- [x] Add setlist persistence/restoration for selected child setlist
+- [x] De-emphasize legacy `NewSetlist` / `OldSetlist` storage in the shell by replacing primary song actions with the real setlist workflow
 - [ ] Mirror setlist shell behavior in MAUI shell
 
 ### Current Stable Shell Notes
@@ -751,11 +751,16 @@ The current stable `SongShell.razor` already includes:
 - child setlist selection state in Panel 1
 - selected setlist document loading
 - Panel 2 setlist-aware song list context (shows selected setlist songs)
+- Panel 2 manual song management entry point for Global/My setlists
+- Panel 2 modal workflow for add/remove/reorder songs in Global/My setlists
 - Panel 3 selected setlist overview
 - Panel 3 New/Old grouped setlist song quick-select
+- selected child setlist persistence/restoration across reloads
+- Panel 3 real setlist song action modal for Global/My setlists
+- legacy fixed-bucket New/Old actions de-emphasized from the primary song toolbar
 - Panel 1 icon-only setlist actions for Global/My rows (edit/delete)
 - Panel 1 Smart setlist sync songs action
 - CSS polish pass for setlist rows and icon actions (light/dark hover states)
 
 The next safe reconstruction step is:
-- add/remove selected song to selected Global/My setlist from shell actions (Smart stays automated/read-only)
+- mirror the setlist shell workflow in the MAUI shell so mobile/desktop uses the same Global / My / Smart setlist model and manual song management rules

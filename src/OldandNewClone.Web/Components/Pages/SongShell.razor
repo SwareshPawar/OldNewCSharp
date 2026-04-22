@@ -13,9 +13,7 @@
 
 <div class="shell @AppThemeClass">
 
-    <!-- ═══════════════════════════════════════════════════
-         PANEL 1 — Navigation Rail
-    ═══════════════════════════════════════════════════ -->
+    <!-- PANEL 1 — Navigation Rail -->
     <div class="panel-1 @(mobilePanelIndex == 0 ? "mobile-show" : "mobile-hide")">
         <div class="p1-brand">
             <span class="brand-icon">🎵</span>
@@ -164,16 +162,14 @@
             else
             {
                 <button class="p1-nav-item" @onclick='() => Navigation.NavigateTo("/auth/login")'>
-                    <span class="nav-icon">🔑</span>
+                    <span class="nav-icon">≡ƒöæ</span>
                     <span class="nav-label">Sign In</span>
                 </button>
             }
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════
-         PANEL 2 — Song List
-    ═══════════════════════════════════════════════════ -->
+    <!-- PANEL 2 — Song List -->
     <div class="panel-2 @(mobilePanelIndex == 1 ? "mobile-show" : "mobile-hide")">
         <!-- P2 Header -->
         <div class="p2-header">
@@ -267,9 +263,7 @@
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════
-         PANEL 3 — Song Detail / Lyrics
-    ═══════════════════════════════════════════════════ -->
+    <!-- PANEL 3 — Song Detail / Lyrics -->
     <div class="panel-3 @(mobilePanelIndex == 2 ? "mobile-show" : "mobile-hide")">
         @if (selectedSetlist is not null && selectedSong is null)
         {
@@ -369,7 +363,6 @@
                     <div class="p3-info-chips">
                         <span class="info-chip">🎼 <strong>@TransposedKey</strong></span>
                         @if (!string.IsNullOrEmpty(selectedSong.Tempo)) { <span class="info-chip">⏱ @selectedSong.Tempo BPM</span> }
-                        @if (!string.IsNullOrEmpty(selectedSong.Time)) { <span class="info-chip">@selectedSong.Time</span> }
                         @if (!string.IsNullOrEmpty(selectedSong.Taal)) { <span class="info-chip">🥁 @selectedSong.Taal</span> }
                     </div>
                     @if (selectedSong.Genres.Any())
@@ -712,9 +705,9 @@
         </div>
     </div>
 }
-<!-- ─────────────── STYLES ─────────────── -->
+<!-- STYLES -->
 <style>
-    /* ── Layout ── */
+    /* Layout */
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; overflow: hidden; }
 
@@ -776,7 +769,7 @@
     .shell.theme-light .p1-user:hover { background: #cbd5e1; }
     .shell.theme-dark .shell, .shell.theme-light .shell { background: inherit; }
 
-    /* ── Panel 1 ── */
+    /* Panel 1 */
     .panel-1 {
         background: #1e293b;
         color: white;
@@ -910,7 +903,7 @@
         color: #b91c1c;
     }
 
-    /* ── Panel 2 ── */
+    /* Panel 2 */
     .panel-2 {
         background: white;
         display: flex; flex-direction: column;
@@ -938,7 +931,7 @@
     .shell.theme-dark .p2-manage-btn { background: #1e3a8a; color: #93c5fd; border-color: #2563eb; }
     .shell.theme-dark .p2-manage-btn:hover { background: #1d4ed8; color: #fff; }
 
-    /* ── Manage Songs Modal ── */
+    /* Manage Songs Modal */
     .manage-songs-modal {
         width: 600px;
         max-width: 96vw;
@@ -1178,10 +1171,6 @@
     .suggested-item:hover { border-color: #3b82f6; background: #eff6ff; }
     .shell.theme-dark .suggested-item { background: #1f2937; border-color: #374151; color: #e2e8f0; }
     .shell.theme-dark .suggested-item:hover { border-color: #60a5fa; background: #1e3a8a; }
-    .suggested-title { font-weight: 600; font-size: 0.88rem; }
-    .suggested-meta { font-size: 0.75rem; color: #64748b; }
-    .shell.theme-dark .suggested-meta { color: #94a3b8; }
-    .suggested-empty { padding: 16px; color: #94a3b8; font-size: 0.85rem; }
     @@keyframes slideIn {
         from { transform: translateX(100%); opacity: 0; }
         to { transform: translateX(0); opacity: 1; }
@@ -1868,7 +1857,7 @@
     {
         if (FlatToSharp.TryGetValue(root, out var sharp)) root = sharp;
         var idx = Array.IndexOf(ChordRoots, root);
-        if ( idx < 0) return root;
+        if (idx < 0) return root;
         return ChordRoots[((idx + steps) % 12 + 12) % 12];
     }
 
