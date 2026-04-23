@@ -5,3 +5,6 @@
 - Smart setlists use a different automated mechanism and should remain read-only (no manual add/remove), while Global/My setlists support manual management. Smart setlists should also provide a sync songs action from Panel 1.
 - Setlist edit/update/delete actions should be exposed on Panel 1 as icon-only controls for each setlist item, rather than in Panel 3.
 - Include stronger CSS polish as part of this phase or upcoming phases while implementing setlist workflow enhancements.
+
+## Editing Preferences
+- Prefer minimal, targeted partial edits to avoid whole-file rewrites that can unintentionally remove code.

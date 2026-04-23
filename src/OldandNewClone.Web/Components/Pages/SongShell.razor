@@ -363,6 +363,7 @@
                     <div class="p3-info-chips">
                         <span class="info-chip">🎼 <strong>@TransposedKey</strong></span>
                         @if (!string.IsNullOrEmpty(selectedSong.Tempo)) { <span class="info-chip">⏱ @selectedSong.Tempo BPM</span> }
+                        @if (!string.IsNullOrEmpty(selectedSong.Time)) { <span class="info-chip">🕒 @selectedSong.Time</span> }
                         @if (!string.IsNullOrEmpty(selectedSong.Taal)) { <span class="info-chip">🥁 @selectedSong.Taal</span> }
                     </div>
                     @if (selectedSong.Genres.Any())
@@ -512,12 +513,30 @@
                     <div class="form-group"><label>Time</label>
                         <select @bind="editSong.Time" class="form-select">
                             <option value="">--</option>
-                            <option>4/4</option><option>3/4</option><option>6/8</option><option>2/4</option>
+                            @foreach (var t in TimeOptions) { <option value="@t">@t</option> }
                         </select>
                     </div>
                 </div>
-                <div class="form-group"><label>Taal</label><input @bind="editSong.Taal" class="form-input" /></div>
-                <div class="form-group"><label>Genres (comma separated)</label><input @bind="editGenresText" class="form-input" /></div>
+                <div class="form-group"><label>Taal</label>
+                    <select @bind="editSong.Taal" class="form-select">
+                        <option value="">--</option>
+                        @foreach (var taal in TaalOptions) { <option value="@taal">@taal</option> }
+                    </select>
+                </div>
+                <div class="form-group"><label>Genres</label>
+                    <div class="multi-option-grid">
+                        @foreach (var g in GenreOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@editSong.Genres.Contains(g)"
+                                       @onchange="e => SetGenreSelection(editSong.Genres, g, IsChecked(e))" />
+                                <span>@g</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+                <div class="form-group"><label>Tags (comma separated)</label><input @bind="editTagsText" class="form-input" /></div>
                 <div class="form-group"><label>Lyrics</label><textarea @bind="editSong.Lyrics" class="form-textarea" rows="9"></textarea></div>
                 <div class="form-group"><label>Notes</label><input @bind="editSong.Notes" class="form-input" /></div>
                 <div class="form-row-2">
@@ -543,10 +562,42 @@
                 </div>
                 <div class="form-row-2">
                     <div class="form-group"><label>Singer</label><input @bind="newSong.Singer" class="form-input" placeholder="Singer name" /></div>
-                    <div class="form-group"><label>Tempo (BPM)</label><input @bind="newSong.Tempo" class="form-input" placeholder="120" /></div>
+                    <div class="form-group"><label>Mood</label>
+                        <select @bind="newSong.Mood" class="form-select">
+                            <option value="">--</option>
+                            @foreach (var m in Moods) { <option value="@m">@m</option> }
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group"><label>Lyrics</label><textarea @bind="newSong.Lyrics" class="form-textarea" rows="9" placeholder="Song lyrics..."></textarea></div>
-                <div class="form-group"><label>Notes</label><input @bind="newSong.Notes" class="form-input" placeholder="Any notes..." /></div>
+                <div class="form-row-2">
+                    <div class="form-group"><label>Tempo (BPM)</label><input @bind="newSong.Tempo" class="form-input" placeholder="120" /></div>
+                    <div class="form-group"><label>Time</label>
+                        <select @bind="newSong.Time" class="form-select">
+                            <option value="">--</option>
+                            @foreach (var t in TimeOptions) { <option value="@t">@t</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group"><label>Taal</label>
+                    <select @bind="newSong.Taal" class="form-select">
+                        <option value="">--</option>
+                        @foreach (var taal in TaalOptions) { <option value="@taal">@taal</option> }
+                    </select>
+                </div>
+                <div class="form-group"><label>Genres</label>
+                    <div class="multi-option-grid">
+                        @foreach (var g in GenreOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@newSong.Genres.Contains(g)"
+                                       @onchange="e => SetGenreSelection(newSong.Genres, g, IsChecked(e))" />
+                                <span>@g</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+                <div class="form-group"><label>Tags (comma separated)</label><input @bind="newTagsText" class="form-input" placeholder="Evening, Communion" /></div>
             }
         </div>
 
@@ -935,7 +986,7 @@
     .manage-songs-modal {
         width: 600px;
         max-width: 96vw;
-        max-height: 88vh;
+        max-height: calc(100dvh - 24px);
         display: flex;
         flex-direction: column;
     }
@@ -1204,11 +1255,14 @@
         background: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         z-index: 101;
         max-width: 90%; width: 480px;
+        max-height: calc(100dvh - 24px);
         display: flex; flex-direction: column;
+        overflow: hidden;
     }
     .song-modal-header {
         padding: 16px; border-bottom: 1px solid #e2e8f0;
         display: flex; justify-content: space-between; align-items: center;
+        flex-shrink: 0;
     }
     .song-modal-header h3 {
         margin: 0; font-size: 1.1rem; font-weight: 700;
@@ -1223,12 +1277,15 @@
         padding: 16px; flex: 1;
         display: flex; flex-direction: column;
         gap: 12px;
+        overflow-y: auto;
+        min-height: 0;
     }
     .song-modal-actions {
         padding: 16px;
         display: flex; justify-content: flex-end;
         gap: 8px;
         border-top: 1px solid #e2e8f0;
+        flex-shrink: 0;
     }
     .btn-cancel-edit {
         background: #f1f5f9; color: #111;
@@ -1259,6 +1316,24 @@
     .form-group {
         display: flex; flex-direction: column;
         gap: 4px;
+    }
+    .multi-option-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 6px 8px;
+        max-height: 150px;
+        overflow-y: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px;
+        background: #fff;
+    }
+    .multi-option-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        color: #334155;
     }
     .form-label {
         font-size: 0.85rem; font-weight: 500;
@@ -1372,11 +1447,12 @@
     };
 
     private SongFormModel editSong = new();
-    private string editGenresText = "";
+    private string editTagsText = "";
     private bool isSaving = false;
     private string? saveError;
     private bool saveSuccess = false;
     private SongFormModel newSong = new();
+    private string newTagsText = "";
     private bool showSongModal = false;
     private bool isEditModal = false;
 
@@ -1397,8 +1473,30 @@
         { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B",
           "Cm","C#m","Dm","D#m","Em","Fm","F#m","Gm","G#m","Am","A#m","Bm" };
 
+    private static readonly string[] TimeOptions = { "4/4", "3/4", "2/4", "6/8", "5/4", "7/8" };
+    private static readonly string[] TaalOptions = { "Keherwa", "Keherwa Slow", "Dadra", "Dadra Slow", "Rupak", "EkTaal", "JhapTaal", "TeenTaal", "Deepchandi", "Garba", "Waltz", "Western" };
+    private static readonly string[] GenreOptions = { "Praise", "Worship", "Christmas", "Easter", "Good Friday", "Dance", "Action", "Love", "Forgiveness", "Holy Spirit", "Qawalli", "Miracle", "Thanksgiving", "Hindi", "Marathi", "English" };
+
     private static readonly string[] Moods =
         { "Worship","Praise","Reflective","Joyful","Peaceful","Energetic","Devotional" };
+
+    private static bool IsChecked(ChangeEventArgs e)
+    {
+        if (e.Value is bool boolValue) return boolValue;
+        return bool.TryParse(e.Value?.ToString(), out var parsed) && parsed;
+    }
+
+    private static void SetGenreSelection(List<string> selectedGenres, string genre, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!selectedGenres.Contains(genre)) selectedGenres.Add(genre);
+        }
+        else
+        {
+            selectedGenres.Remove(genre);
+        }
+    }
 
     private int NewTabCount => GetSectionBase().Count(s => s.Category == "New");
     private int OldTabCount => GetSectionBase().Count(s => s.Category == "Old");
@@ -1769,6 +1867,77 @@
         }
     }
 
+    private static readonly string[] ChordRoots = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    private static readonly Dictionary<string, string> FlatToSharp = new() { {"Db","C#"},{"Eb","D#"},{"Fb","E"},{"Gb","F#"},{"Ab","G#"},{"Bb","A#"},{"Cb","B"} };
+    private static readonly Regex ChordRegex = new(@"([A-G][#b]?)(maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/([A-G][#b]?))?", RegexOptions.Compiled);
+    private static readonly Regex ChordLineRegex = new(@"^(\s*[A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?\s*)+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex InlineChordRegex = new(@"\[([A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?)\]", RegexOptions.Compiled);
+
+    private static string TransposeSingleRoot(string root, int steps)
+    {
+        if (FlatToSharp.TryGetValue(root, out var sharp)) root = sharp;
+        var idx = Array.IndexOf(ChordRoots, root);
+        if (idx < 0) return root;
+        return ChordRoots[((idx + steps) % 12 + 12) % 12];
+    }
+
+    private static string TransposeChordSymbol(string chord, int steps)
+    {
+        if (steps == 0 || string.IsNullOrWhiteSpace(chord)) return chord;
+
+        var match = ChordRegex.Match(chord);
+        if (!match.Success) return chord;
+
+        var root = match.Groups[1].Value;
+        var quality = match.Groups[2].Value;
+        var bass = match.Groups[3].Success ? match.Groups[3].Value : null;
+
+        var newRoot = TransposeSingleRoot(root, steps);
+        var newBass = bass is null ? null : TransposeSingleRoot(bass, steps);
+
+        return newBass is null ? $"{newRoot}{quality}" : $"{newRoot}{quality}/{newBass}";
+    }
+
+    private static string RenderLyricsWithChords(string lyrics, int steps)
+    {
+        if (string.IsNullOrWhiteSpace(lyrics)) return string.Empty;
+        var lines = lyrics.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        var sb = new System.Text.StringBuilder();
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                sb.AppendLine();
+                continue;
+            }
+
+            if (InlineChordRegex.IsMatch(line))
+            {
+                var rendered = InlineChordRegex.Replace(line, m =>
+                {
+                    var orig = m.Groups[1].Value;
+                    var transposed = TransposeChordSymbol(orig, steps);
+                    return $"<span class=\"inline-chord\">[{System.Web.HttpUtility.HtmlEncode(transposed)}]</span>";
+                });
+                sb.AppendLine(rendered);
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(line) && ChordLineRegex.IsMatch(line.Trim()))
+            {
+                var transposed = steps == 0 ? line : ChordRegex.Replace(line, m => TransposeChordSymbol(m.Value, steps));
+                sb.AppendLine($"<span class=\"chord-line\">{System.Web.HttpUtility.HtmlEncode(transposed)}</span>");
+                continue;
+            }
+
+            sb.AppendLine(System.Web.HttpUtility.HtmlEncode(line));
+        }
+        return sb.ToString();
+    }
+
+    private void MobileGoToPanel1() { mobilePanelIndex = 0; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
+    private void MobileGoToPanel2() { mobilePanelIndex = 1; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
+
     private async Task ToggleFavorite()
     {
         if (!UserState.IsLoggedIn || selectedSongId is null) return;
@@ -1803,11 +1972,11 @@
     {
         saveError = null;
         if (string.IsNullOrWhiteSpace(editSong.Title)) { saveError = "Title is required."; return; }
-        editSong.Genres = editGenresText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        editSong.Tags = editTagsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         isSaving = true;
         try
         {
-            var dto = new { selectedSong!.Id, editSong.Title, editSong.Category, editSong.Key, editSong.Tempo, editSong.Time, editSong.Taal, editSong.Genres, editSong.Lyrics, editSong.Singer, editSong.Mood, editSong.Notes, editSong.YoutubeLink, editSong.SpotifyLink, IsPublic = true };
+            var dto = new { selectedSong!.Id, editSong.Title, editSong.Category, editSong.Key, editSong.Tempo, editSong.Time, editSong.Taal, editSong.Genres, editSong.Lyrics, editSong.Singer, editSong.Mood, editSong.Tags, editSong.Notes, editSong.YoutubeLink, editSong.SpotifyLink, IsPublic = true };
             var resp = await Http.PutAsJsonAsync($"api/songs/{selectedSong.Id}", dto);
             if (resp.IsSuccessStatusCode) { saveSuccess = true; await SelectSong(selectedSong.Id); await LoadAllSongs(); }
             else saveError = $"Save failed ({resp.StatusCode}).";
@@ -1821,12 +1990,13 @@
         saveError = null;
         if (string.IsNullOrWhiteSpace(newSong.Title)) { saveError = "Title is required."; return; }
         if (string.IsNullOrWhiteSpace(newSong.Category)) { saveError = "Category is required."; return; }
+        newSong.Tags = newTagsText.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         isSaving = true;
         try
         {
-            var dto = new { newSong.Title, newSong.Category, newSong.Key, newSong.Tempo, newSong.Time, newSong.Taal, Genres = new List<string>(), newSong.Lyrics, newSong.Singer, newSong.Notes, IsPublic = true };
+            var dto = new { newSong.Title, newSong.Category, newSong.Key, newSong.Tempo, newSong.Time, newSong.Taal, newSong.Genres, newSong.Lyrics, newSong.Singer, newSong.Mood, newSong.Tags, newSong.Notes, newSong.YoutubeLink, newSong.SpotifyLink, IsPublic = true };
             var resp = await Http.PostAsJsonAsync("api/songs", dto);
-            if (resp.IsSuccessStatusCode) { saveSuccess = true; newSong = new(); await LoadAllSongs(); await SelectSection("all"); }
+            if (resp.IsSuccessStatusCode) { saveSuccess = true; newSong = new(); newTagsText = ""; await LoadAllSongs(); await SelectSection("all"); }
             else saveError = $"Save failed ({resp.StatusCode}).";
         }
         catch (Exception ex) { saveError = ex.Message; }
@@ -1846,68 +2016,6 @@
         catch (Exception ex) { saveError = ex.Message; }
         finally { isSaving = false; }
     }
-
-    private static readonly string[] ChordRoots = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    private static readonly Dictionary<string, string> FlatToSharp = new() { {"Db","C#"},{"Eb","D#"},{"Fb","E"},{"Gb","F#"},{"Ab","G#"},{"Bb","A#"},{"Cb","B"} };
-    private static readonly Regex ChordRegex = new(@"([A-G][#b]?)(maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/([A-G][#b]?))?", RegexOptions.Compiled);
-    private static readonly Regex ChordLineRegex = new(@"^(\s*[A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?\s*)+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex InlineChordRegex = new(@"\[([A-G][#b]?(?:maj7?|min|m7?|dim|aug|sus[24]?|add9|m9|maj9|7|9|11|13|6)?(?:\/[A-G][#b]?)?)\]", RegexOptions.Compiled);
-
-    private static string TransposeSingleRoot(string root, int steps)
-    {
-        if (FlatToSharp.TryGetValue(root, out var sharp)) root = sharp;
-        var idx = Array.IndexOf(ChordRoots, root);
-        if (idx < 0) return root;
-        return ChordRoots[((idx + steps) % 12 + 12) % 12];
-    }
-
-    private static string TransposeChordSymbol(string chord, int steps)
-    {
-        if (steps == 0) return chord;
-        return ChordRegex.Replace(chord, m =>
-        {
-            var root = TransposeSingleRoot(m.Groups[1].Value, steps);
-            var quality = m.Groups[2].Value;
-            var bass = m.Groups[3].Success ? "/" + TransposeSingleRoot(m.Groups[3].Value, steps) : "";
-            return root + quality + bass;
-        });
-    }
-
-    private static string RenderLyricsWithChords(string lyrics, int steps)
-    {
-        if (string.IsNullOrWhiteSpace(lyrics))
-            return System.Web.HttpUtility.HtmlEncode(lyrics);
-
-        var sb = new System.Text.StringBuilder();
-        foreach (var rawLine in lyrics.Split('\n'))
-        {
-            var line = rawLine.TrimEnd('\r');
-            if (InlineChordRegex.IsMatch(line))
-            {
-                var rendered = InlineChordRegex.Replace(System.Web.HttpUtility.HtmlEncode(line), m =>
-                {
-                    var orig = m.Groups[1].Value;
-                    var transposed = TransposeChordSymbol(orig, steps);
-                    return $"<span class=\"inline-chord\">[{System.Web.HttpUtility.HtmlEncode(transposed)}]</span>";
-                });
-                sb.AppendLine(rendered);
-                continue;
-            }
-
-            if (!string.IsNullOrWhiteSpace(line) && ChordLineRegex.IsMatch(line.Trim()))
-            {
-                var transposed = steps == 0 ? line : ChordRegex.Replace(line, m => TransposeChordSymbol(m.Value, steps));
-                sb.AppendLine($"<span class=\"chord-line\">{System.Web.HttpUtility.HtmlEncode(transposed)}</span>");
-                continue;
-            }
-
-            sb.AppendLine(System.Web.HttpUtility.HtmlEncode(line));
-        }
-        return sb.ToString();
-    }
-
-    private void MobileGoToPanel1() { mobilePanelIndex = 0; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
-    private void MobileGoToPanel2() { mobilePanelIndex = 1; _ = SavePreferenceAsync(PrefPanelKey, mobilePanelIndex.ToString()); }
 
     private void OpenCreateSetlistModal()
     {
@@ -2182,6 +2290,7 @@
     private void OpenAddModal()
     {
         newSong = new();
+        newTagsText = "";
         isEditModal = false;
         showSongModal = true;
         saveError = null;
@@ -2207,7 +2316,7 @@
                 YoutubeLink = selectedSong.YoutubeLink,
                 SpotifyLink = selectedSong.SpotifyLink
             };
-            editGenresText = string.Join(", ", selectedSong.Genres ?? new());
+            editTagsText = string.Join(", ", selectedSong.Tags ?? new());
             isEditModal = true;
             showSongModal = true;
             saveError = null;
@@ -2250,6 +2359,7 @@
         public string Time { get; set; } = "";
         public string Taal { get; set; } = "";
         public List<string> Genres { get; set; } = new();
+        public List<string>? Tags { get; set; }
         public string Lyrics { get; set; } = "";
         public string? Singer { get; set; }
         public string? Mood { get; set; }
