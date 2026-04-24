@@ -159,4 +159,4 @@ Should show:
 
 Your apps now share the same MongoDB backend and users can login to both! 🎉
 
-For more details, see: `SHARED_MONGODB_MIGRATION_GUIDE.md`
+For more details, see: `CSHARP_MIGRATION_PLAN.md` (single migration source of truth)
