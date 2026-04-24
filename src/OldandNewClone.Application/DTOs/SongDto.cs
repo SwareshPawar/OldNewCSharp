@@ -29,7 +29,11 @@ public record SongListItemDto(
     string Key,
     List<string> Genres,
     string? Singer,
-    string? Mood
+    string? Mood,
+    string? Tempo,
+    string? Time,
+    string? Taal,
+    List<string>? Tags
 );
 
 public record CreateSongDto(

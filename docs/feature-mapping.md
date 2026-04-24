@@ -2,6 +2,10 @@
 
 This document maps all features from the original OldandNew application to the new C# implementation.
 
+Source baseline: `github.com/SwareshPawar/OldandNew` branch `main`.
+Local reference snapshot: `refs/OldandNew-main`.
+For migration status, use `CSHARP_MIGRATION_PLAN.md`.
+
 ## Feature Status Legend
 - ✅ **Completed**: Feature implemented and tested
 - 🔄 **In Progress**: Currently being developed

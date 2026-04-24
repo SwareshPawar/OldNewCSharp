@@ -1,5 +1,7 @@
 # C# Application Migration Plan - Node.js to .NET 10
 
+> Canonical migration status document for this repository.
+
 ## Overview
 This document outlines the complete migration strategy for porting the Old & New Song Management application from Node.js to C# .NET 10 with MAUI and Blazor.
 
@@ -7,7 +9,7 @@ This document outlines the complete migration strategy for porting the Old & New
 
 ### Source Application (Node.js)
 - **Repository**: https://github.com/SwareshPawar/OldandNew
-- **Branch**: AdminPassword (custom authentication)
+- **Branch**: Main
 - **Stack**: Express.js, MongoDB, bcryptjs, JWT
 - **Database**: MongoDB Atlas (shared with C# app)
 

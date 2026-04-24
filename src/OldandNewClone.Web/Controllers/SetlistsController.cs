@@ -90,5 +90,12 @@ public class SetlistsController : ControllerBase
         return updated is null ? NotFound() : Ok(updated);
     }
 
+    [HttpPost("smart-scan")]
+    public async Task<IActionResult> SmartScan([FromBody] Dictionary<string, string>? conditions)
+    {
+        var ids = await _setlistService.PreviewSmartSongIdsAsync(conditions);
+        return Ok(ids);
+    }
+
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? string.Empty;
 }

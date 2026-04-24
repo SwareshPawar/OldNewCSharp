@@ -12,6 +12,7 @@ public interface ISetlistService
     Task<SetlistDto?> UpdateAsync(string userId, bool isAdmin, string id, UpdateSetlistDto dto);
     Task<SetlistDto?> AddSongAsync(string userId, bool isAdmin, string id, int songId);
     Task<SetlistDto?> RemoveSongAsync(string userId, bool isAdmin, string id, int songId);
+    Task<List<int>> PreviewSmartSongIdsAsync(Dictionary<string, string>? conditions);
     Task<SetlistDto?> SyncSmartSetlistAsync(string userId, bool isAdmin, string id);
     Task<bool> DeleteAsync(string userId, bool isAdmin, string id);
 }

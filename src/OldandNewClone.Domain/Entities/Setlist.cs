@@ -85,7 +85,7 @@ public class Setlist
 
     [BsonIgnore]
     public Dictionary<string, string>? Conditions =>
-        ConditionsRaw?.Elements.ToDictionary(e => e.Name, e => e.Value.ToString() ?? string.Empty);
+        ConditionsRaw?.Elements.ToDictionary(e => e.Name, e => ConvertConditionValue(e.Value), StringComparer.OrdinalIgnoreCase);
 
     [BsonIgnore]
     public DateTime CreatedAt => ParseDate(CreatedAtRaw);
@@ -99,6 +99,27 @@ public class Setlist
         if (value.IsValidDateTime) return value.ToUniversalTime();
         if (value.IsString && DateTime.TryParse(value.AsString, out var parsed)) return parsed;
         return DateTime.UtcNow;
+    }
+
+    private static string ConvertConditionValue(BsonValue value)
+    {
+        if (value == null || value.IsBsonNull) return string.Empty;
+        if (value.IsString) return value.AsString;
+        if (value.IsBsonArray)
+        {
+            return string.Join(",", value.AsBsonArray
+                .Select(ConvertArrayToken)
+                .Where(token => !string.IsNullOrWhiteSpace(token)));
+        }
+
+        return value.ToString() ?? string.Empty;
+    }
+
+    private static string ConvertArrayToken(BsonValue token)
+    {
+        if (token == null || token.IsBsonNull) return string.Empty;
+        if (token.IsString) return token.AsString.Trim();
+        return (token.ToString() ?? string.Empty).Trim();
     }
 }
 

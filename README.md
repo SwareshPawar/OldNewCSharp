@@ -97,9 +97,9 @@ dotnet build -f net10.0-windows10.0.19041.0 -t:Run
 
 ## 📊 Project Status
 
-**Current Milestone**: M1 - Setup and Architecture Baseline (🔄 In Progress)
+**Migration Status**: Tracked in `CSHARP_MIGRATION_PLAN.md` (canonical status source)
 
-See [milestones.md](docs/milestones.md) for detailed progress tracking.
+See [milestones.md](docs/milestones.md) for planning backlog.
 
 ## 📚 Documentation
 

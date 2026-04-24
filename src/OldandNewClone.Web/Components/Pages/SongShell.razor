@@ -661,6 +661,192 @@
 
             <div class="form-group"><label>Name *</label><input @bind="setlistName" class="form-input" /></div>
             <div class="form-group"><label>Description</label><textarea @bind="setlistDescription" class="form-textarea" rows="4"></textarea></div>
+
+            @if (IsSmartSetlistModal)
+            {
+                <div class="form-group">
+                    <label>Categories (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var c in SmartCategoryOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedCategories.Contains(c)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedCategories, c, IsChecked(e))" />
+                                <span>@c</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Keys (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var key in MusicKeys)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedKeys.Contains(key)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedKeys, key, IsChecked(e))" />
+                                <span>@key</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Moods (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var mood in Moods)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedMoods.Contains(mood)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedMoods, mood, IsChecked(e))" />
+                                <span>@mood</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Genres (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var genre in GenreOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedGenres.Contains(genre)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedGenres, genre, IsChecked(e))" />
+                                <span>@genre</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Time Signatures (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var time in SmartTimeOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedTimes.Contains(time)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedTimes, time, IsChecked(e))" />
+                                <span>@time</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Taals (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var taal in SmartTaalFilterOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedTaals.Contains(taal)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedTaals, taal, IsChecked(e))" />
+                                <span>@taal</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Singers (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var singer in SmartSingerOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedSingers.Contains(singer)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedSingers, singer, IsChecked(e))" />
+                                <span>@singer</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tags (multi-select)</label>
+                    <div class="multi-option-grid">
+                        @foreach (var tag in SmartTagOptions)
+                        {
+                            <label class="multi-option-item">
+                                <input type="checkbox"
+                                       checked="@smartSelectedTags.Contains(tag)"
+                                       @onchange="e => ToggleSmartSelection(smartSelectedTags, tag, IsChecked(e))" />
+                                <span>@tag</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label>Tempo Min</label>
+                        <input type="number" min="0" @bind="smartTempoMin" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Tempo Max</label>
+                        <input type="number" min="0" @bind="smartTempoMax" class="form-input" />
+                    </div>
+                </div>
+
+                <div class="smart-scan-toolbar">
+                    <button class="btn-cancel-edit" @onclick="ScanSmartSetlistSongsPreview" disabled="@isSmartScanRunning">
+                        @(isSmartScanRunning ? "Scanning..." : "Scan Songs")
+                    </button>
+                    @if (smartScanHasRun)
+                    {
+                        <span class="smart-scan-count">@smartScannedSongs.Count song(s) matched</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(smartScanDiagnostics))
+                {
+                    <div class="smart-scan-debug">@smartScanDiagnostics</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(smartScanError))
+                {
+                    <div class="form-error">⚠️ @smartScanError</div>
+                }
+
+                @if (smartScanHasRun)
+                {
+                    <div class="smart-scan-results">
+                        @if (smartScannedSongs.Count == 0)
+                        {
+                            <div class="manage-empty-hint">No songs matched the selected filters.</div>
+                        }
+                        else
+                        {
+                            @foreach (var song in smartScannedSongs)
+                            {
+                                <div class="smart-scan-row">
+                                    <div class="manage-song-info">
+                                        <span class="manage-song-title">@song.Title</span>
+                                        @if (!string.IsNullOrWhiteSpace(song.Singer))
+                                        {
+                                            <span class="manage-song-meta">🎤 @song.Singer</span>
+                                        }
+                                    </div>
+                                    <div class="manage-song-right">
+                                        @if (!string.IsNullOrWhiteSpace(song.Key))
+                                        {
+                                            <span class="key-pill">@song.Key</span>
+                                        }
+                                        <span class="cat-dot @(song.Category == "Old" ? "dot-old" : "dot-new")"></span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            }
         </div>
 
         <div class="song-modal-actions">
@@ -1353,6 +1539,44 @@
         display: flex; flex-direction: column;
         gap: 4px;
     }
+    .form-group-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .smart-scan-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+    }
+    .smart-scan-count {
+        font-size: 0.82rem;
+        color: #475569;
+    }
+    .smart-scan-debug {
+        font-size: 0.78rem;
+        color: #64748b;
+        margin-top: 4px;
+    }
+    .smart-scan-results {
+        margin-top: 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        max-height: 220px;
+        overflow-y: auto;
+        background: #fff;
+    }
+    .smart-scan-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 10px;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .smart-scan-row:last-child {
+        border-bottom: none;
+    }
     .multi-option-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -1498,6 +1722,21 @@
     private string? setlistError;
     private string setlistName = "";
     private string? setlistDescription;
+    private List<string> smartSelectedCategories = new();
+    private List<string> smartSelectedKeys = new();
+    private List<string> smartSelectedMoods = new();
+    private List<string> smartSelectedGenres = new();
+    private List<string> smartSelectedTimes = new();
+    private List<string> smartSelectedTaals = new();
+    private List<string> smartSelectedSingers = new();
+    private List<string> smartSelectedTags = new();
+    private string? smartTempoMin;
+    private string? smartTempoMax;
+    private bool isSmartScanRunning;
+    private bool smartScanHasRun;
+    private string? smartScanError;
+    private string? smartScanDiagnostics;
+    private List<SongItem> smartScannedSongs = new();
 
     private bool showManageSongsModal = false;
     private List<int> manageSongsList = new();
@@ -1516,6 +1755,40 @@
     private static readonly string[] Moods =
         { "Worship","Praise","Reflective","Joyful","Peaceful","Energetic","Devotional" };
 
+    private static readonly string[] SmartCategoryOptions = { "New", "Old" };
+    private bool IsSmartSetlistModal =>
+        isEditSetlistModal ? string.Equals(selectedSetlist?.Type, "smart", StringComparison.OrdinalIgnoreCase) : activeSection == "setlists-smart";
+    private List<string> SmartSingerOptions => allSongs
+        .Select(s => s.Singer?.Trim())
+        .Where(s => !string.IsNullOrWhiteSpace(s))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+        .Cast<string>()
+        .ToList();
+    private List<string> SmartTagOptions => allSongs
+        .SelectMany(s => s.Tags ?? new List<string>())
+        .Select(t => t.Trim())
+        .Where(t => !string.IsNullOrWhiteSpace(t))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    private List<string> SmartTimeOptions => allSongs
+        .Select(s => s.Time?.Trim())
+        .Where(t => !string.IsNullOrWhiteSpace(t))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+        .Cast<string>()
+        .Concat(TimeOptions.Where(t => !allSongs.Any(s => string.Equals(s.Time, t, StringComparison.OrdinalIgnoreCase))))
+        .ToList();
+    private List<string> SmartTaalFilterOptions => allSongs
+        .Select(s => s.Taal?.Trim())
+        .Where(t => !string.IsNullOrWhiteSpace(t))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
+        .Cast<string>()
+        .Concat(TaalOptions.Where(t => !allSongs.Any(s => string.Equals(s.Taal, t, StringComparison.OrdinalIgnoreCase))))
+        .ToList();
+
     private static bool IsChecked(ChangeEventArgs e)
     {
         if (e.Value is bool boolValue) return boolValue;
@@ -1532,6 +1805,257 @@
         {
             selectedGenres.Remove(genre);
         }
+    }
+
+    private static void ToggleSmartSelection(List<string> selected, string value, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!selected.Contains(value, StringComparer.OrdinalIgnoreCase))
+                selected.Add(value);
+        }
+        else
+        {
+            selected.RemoveAll(v => string.Equals(v, value, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void ResetSmartSetlistFilters()
+    {
+        smartSelectedCategories = new();
+        smartSelectedKeys = new();
+        smartSelectedMoods = new();
+        smartSelectedGenres = new();
+        smartSelectedTimes = new();
+        smartSelectedTaals = new();
+        smartSelectedSingers = new();
+        smartSelectedTags = new();
+        smartTempoMin = null;
+        smartTempoMax = null;
+        ResetSmartScanPreview();
+    }
+
+    private void LoadSmartSetlistFilters(Dictionary<string, string>? conditions)
+    {
+        ResetSmartSetlistFilters();
+        if (conditions is null || conditions.Count == 0) return;
+
+        smartSelectedCategories = ParseCsv(conditions, "categories");
+        smartSelectedKeys = ParseCsv(conditions, "keys");
+        smartSelectedMoods = ParseCsv(conditions, "moods");
+        smartSelectedGenres = ParseCsv(conditions, "genres");
+        smartSelectedTimes = ParseCsv(conditions, "times");
+        smartSelectedTaals = ParseCsv(conditions, "taals");
+        smartSelectedSingers = ParseCsv(conditions, "singers");
+        smartSelectedTags = ParseCsv(conditions, "tags");
+        conditions.TryGetValue("tempoMin", out smartTempoMin);
+        conditions.TryGetValue("tempoMax", out smartTempoMax);
+    }
+
+    private Dictionary<string, string>? BuildSmartConditions()
+    {
+        var conditions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        AddCsvCondition(conditions, "categories", smartSelectedCategories);
+        AddCsvCondition(conditions, "keys", smartSelectedKeys);
+        AddCsvCondition(conditions, "moods", smartSelectedMoods);
+        AddCsvCondition(conditions, "genres", smartSelectedGenres);
+        AddCsvCondition(conditions, "times", smartSelectedTimes);
+        AddCsvCondition(conditions, "taals", smartSelectedTaals);
+        AddCsvCondition(conditions, "singers", smartSelectedSingers);
+        AddCsvCondition(conditions, "tags", smartSelectedTags);
+
+        if (int.TryParse(smartTempoMin, out var tempoMin) && tempoMin > 0)
+            conditions["tempoMin"] = tempoMin.ToString();
+        if (int.TryParse(smartTempoMax, out var tempoMax) && tempoMax > 0)
+            conditions["tempoMax"] = tempoMax.ToString();
+
+        return conditions.Count == 0 ? null : conditions;
+    }
+
+    private static List<string> ParseCsv(Dictionary<string, string> conditions, string key)
+    {
+        if (!conditions.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw)) return new();
+        return raw
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static void AddCsvCondition(Dictionary<string, string> target, string key, List<string> values)
+    {
+        if (values.Count == 0) return;
+        var normalized = values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (normalized.Count > 0)
+            target[key] = string.Join(",", normalized);
+    }
+
+    private void ResetSmartScanPreview()
+    {
+        isSmartScanRunning = false;
+        smartScanHasRun = false;
+        smartScanError = null;
+        smartScanDiagnostics = null;
+        smartScannedSongs = new();
+    }
+
+    private async Task<List<int>> FetchSmartScanSongIds(Dictionary<string, string>? conditions)
+    {
+        var payload = conditions ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var resp = await Http.PostAsJsonAsync("api/setlists/smart-scan", payload);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Smart scan failed ({resp.StatusCode}).");
+
+        return await resp.Content.ReadFromJsonAsync<List<int>>() ?? new List<int>();
+    }
+
+    private async Task<List<int>> ResolveSmartScanSongIdsWithFallback(Dictionary<string, string>? conditions)
+    {
+        List<int> backendIds;
+        try
+        {
+            backendIds = await FetchSmartScanSongIds(conditions);
+        }
+        catch (Exception ex)
+        {
+            backendIds = new List<int>();
+            smartScanDiagnostics = $"backend scan unavailable ({ex.Message}); using local fallback";
+        }
+
+        // Fallback: if backend unexpectedly yields no matches, run local model filtering
+        // to keep scan/create usable while backend mismatch is being diagnosed.
+        if (backendIds.Count == 0)
+        {
+            if (allSongs.Count == 0)
+                await LoadAllSongs();
+
+            var localIds = ApplySmartConditionsForPreview(allSongs, conditions)
+                .Select(s => s.Id)
+                .Distinct()
+                .ToList();
+
+            if (localIds.Count > 0)
+            {
+                smartScanDiagnostics = $"backend matches: 0, local fallback matches: {localIds.Count}, loaded songs: {allSongs.Count}";
+                return localIds;
+            }
+        }
+
+        return backendIds;
+    }
+
+    private async Task ScanSmartSetlistSongsPreview()
+    {
+        smartScanError = null;
+        smartScanDiagnostics = null;
+        isSmartScanRunning = true;
+
+        try
+        {
+            await Task.Yield();
+            var conditions = BuildSmartConditions();
+
+            var matchedIds = await ResolveSmartScanSongIdsWithFallback(conditions);
+
+            if (allSongs.Count == 0)
+                await LoadAllSongs();
+
+            var idSet = matchedIds.ToHashSet();
+            smartScannedSongs = allSongs
+                .Where(s => idSet.Contains(s.Id))
+                .OrderBy(s => s.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (string.IsNullOrWhiteSpace(smartScanDiagnostics))
+                smartScanDiagnostics = $"backend matches: {matchedIds.Count}, loaded songs: {allSongs.Count}, rendered matches: {smartScannedSongs.Count}";
+            smartScanHasRun = true;
+        }
+        catch (Exception ex)
+        {
+            smartScanError = ex.Message;
+        }
+        finally
+        {
+            isSmartScanRunning = false;
+        }
+    }
+
+    private static List<SongItem> ApplySmartConditionsForPreview(List<SongItem> songs, Dictionary<string, string>? conditions)
+    {
+        if (conditions is null || conditions.Count == 0)
+            return songs.OrderBy(s => s.Title).ToList();
+
+        IEnumerable<SongItem> query = songs;
+
+        var categories = ParseCsv(conditions, "categories");
+        if (categories.Count > 0)
+            query = query.Where(s => categories.Contains(s.Category, StringComparer.OrdinalIgnoreCase));
+
+        var keys = ParseCsv(conditions, "keys");
+        if (keys.Count > 0)
+            query = query.Where(s => keys.Contains(s.Key, StringComparer.OrdinalIgnoreCase));
+
+        var moods = ParseCsv(conditions, "moods");
+        if (moods.Count > 0)
+            query = query.Where(s => moods.Any(m => (s.Mood ?? string.Empty).Contains(m, StringComparison.OrdinalIgnoreCase)));
+
+        var genres = ParseCsv(conditions, "genres");
+        if (genres.Count > 0)
+            query = query.Where(s => s.Genres.Any(g => genres.Contains(g, StringComparer.OrdinalIgnoreCase)));
+
+        var times = ParseCsv(conditions, "times");
+        if (times.Count > 0)
+        {
+            var normalizedTimes = times.Select(NormalizeMeter).Where(v => !string.IsNullOrWhiteSpace(v)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            query = query.Where(s => !string.IsNullOrWhiteSpace(s.Time) && normalizedTimes.Contains(NormalizeMeter(s.Time)));
+        }
+
+        var taals = ParseCsv(conditions, "taals");
+        if (taals.Count > 0)
+        {
+            var normalizedTaals = taals.Select(NormalizeTextToken).Where(v => !string.IsNullOrWhiteSpace(v)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            query = query.Where(s => !string.IsNullOrWhiteSpace(s.Taal) && normalizedTaals.Contains(NormalizeTextToken(s.Taal)));
+        }
+
+        var singers = ParseCsv(conditions, "singers");
+        if (singers.Count > 0)
+            query = query.Where(s => !string.IsNullOrWhiteSpace(s.Singer) && singers.Contains(s.Singer!, StringComparer.OrdinalIgnoreCase));
+
+        var tags = ParseCsv(conditions, "tags");
+        if (tags.Count > 0)
+            query = query.Where(s => s.Tags is not null && s.Tags.Any(t => tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
+
+        var tempoMin = 0;
+        var tempoMax = 0;
+        var hasTempoMin = conditions.TryGetValue("tempoMin", out var tempoMinRaw) && int.TryParse(tempoMinRaw, out tempoMin);
+        var hasTempoMax = conditions.TryGetValue("tempoMax", out var tempoMaxRaw) && int.TryParse(tempoMaxRaw, out tempoMax);
+        hasTempoMin = hasTempoMin && tempoMin > 0;
+        hasTempoMax = hasTempoMax && tempoMax > 0;
+        if (hasTempoMin || hasTempoMax)
+        {
+            query = query.Where(s => int.TryParse(s.Tempo, out var bpm) && (!hasTempoMin || bpm >= tempoMin) && (!hasTempoMax || bpm <= tempoMax));
+        }
+
+        return query
+            .OrderBy(s => s.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string NormalizeMeter(string? meter)
+    {
+        if (string.IsNullOrWhiteSpace(meter)) return string.Empty;
+        return meter.Trim().Replace(" ", string.Empty);
+    }
+
+    private static string NormalizeTextToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        return value.Trim();
     }
 
     private int NewTabCount => GetSectionBase().Count(s => s.Category == "New");
@@ -2062,6 +2586,8 @@
         setlistName = "";
         setlistDescription = "";
         setlistError = null;
+        if (activeSection == "setlists-smart")
+            ResetSmartSetlistFilters();
         showSetlistModal = true;
     }
 
@@ -2081,6 +2607,10 @@
         setlistName = selectedSetlist.Name;
         setlistDescription = selectedSetlist.Description;
         setlistError = null;
+        if (string.Equals(selectedSetlist.Type, "smart", StringComparison.OrdinalIgnoreCase))
+            LoadSmartSetlistFilters(selectedSetlist.Conditions);
+        else
+            ResetSmartSetlistFilters();
         showSetlistModal = true;
     }
 
@@ -2089,6 +2619,7 @@
         showSetlistModal = false;
         setlistError = null;
         isSetlistSaving = false;
+        ResetSmartSetlistFilters();
     }
 
     private void OpenManageSongsModal()
@@ -2178,14 +2709,19 @@
         isSetlistSaving = true;
         try
         {
+            var smartConditions = IsSmartSetlistModal ? BuildSmartConditions() : null;
+            var smartSongsForSave = IsSmartSetlistModal
+                ? await ResolveSmartScanSongIdsWithFallback(smartConditions)
+                : new List<int>();
+
             if (isEditSetlistModal && selectedSetlist is not null)
             {
                 var updateDto = new
                 {
                     Name = setlistName.Trim(),
                     Description = setlistDescription,
-                    Songs = selectedSetlist.Songs,
-                    Conditions = selectedSetlist.Conditions,
+                    Songs = IsSmartSetlistModal ? smartSongsForSave : selectedSetlist.Songs,
+                    Conditions = IsSmartSetlistModal ? smartConditions : selectedSetlist.Conditions,
                     IsPublic = selectedSetlist.IsPublic
                 };
 
@@ -2194,6 +2730,15 @@
                 {
                     setlistError = $"Save failed ({updateResp.StatusCode}).";
                     return;
+                }
+
+                if (IsSmartSetlistModal)
+                {
+                    var syncResp = await Http.PostAsync($"api/setlists/{selectedSetlist.Id}/sync", null);
+                    if (!syncResp.IsSuccessStatusCode)
+                    {
+                        setlistError = $"Saved, but sync failed ({syncResp.StatusCode}).";
+                    }
                 }
             }
             else
@@ -2209,8 +2754,8 @@
                     Name = setlistName.Trim(),
                     Description = setlistDescription,
                     Type = type,
-                    Songs = new List<int>(),
-                    Conditions = (Dictionary<string, string>?)null,
+                    Songs = type == "smart" ? smartSongsForSave : new List<int>(),
+                    Conditions = type == "smart" ? smartConditions : null,
                     IsPublic = type == "global"
                 };
 
@@ -2222,6 +2767,15 @@
                 }
 
                 var created = await createResp.Content.ReadFromJsonAsync<SetlistResponse>();
+                if (created is not null && string.Equals(created.Type, "smart", StringComparison.OrdinalIgnoreCase))
+                {
+                    var syncResp = await Http.PostAsync($"api/setlists/{created.Id}/sync", null);
+                    if (!syncResp.IsSuccessStatusCode)
+                    {
+                        setlistError = $"Created, but sync failed ({syncResp.StatusCode}).";
+                    }
+                }
+
                 await LoadSetlistsAsync();
                 if (created is not null)
                 {
@@ -2404,7 +2958,7 @@
 
     private record SetlistShellItem(string Id, string Name, string Type, int SongCount);
     private record SetlistResponse(string Id, string Name, string? Description, string Type, string? OwnerUserId, List<int> Songs, Dictionary<string, string>? Conditions, bool IsPublic, DateTime CreatedAt, DateTime? UpdatedAt);
-    private record SongItem(int Id, string Title, string Category, string Key, List<string> Genres, string? Singer, string? Mood);
+    private record SongItem(int Id, string Title, string Category, string Key, List<string> Genres, string? Singer, string? Mood, string? Tempo, string? Time, string? Taal, List<string>? Tags);
     private record SongDetail(int Id, string Title, string Category, string Key, string Tempo, string Time, string Taal, List<string> Genres, string Lyrics, string? Singer, string? Mood, List<string>? Tags, string? YoutubeLink, string? SpotifyLink, string? Notes, bool IsPublic, int ViewCount, DateTime CreatedAt, DateTime? UpdatedAt);
 
     private class UserDataState

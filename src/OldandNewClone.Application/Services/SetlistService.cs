@@ -1,4 +1,5 @@
 using MongoDB.Bson;
+using System.Text.Json;
 using OldandNewClone.Application.DTOs;
 using OldandNewClone.Application.Interfaces;
 using OldandNewClone.Domain.Entities;
@@ -159,40 +160,63 @@ public class SetlistService : ISetlistService
         return updated is null ? null : Map(updated);
     }
 
+    public async Task<List<int>> PreviewSmartSongIdsAsync(Dictionary<string, string>? conditions)
+    {
+        var songs = await _songRepository.GetAllAsync();
+        var filtered = ApplySmartConditions(songs, conditions);
+        return filtered.Select(s => s.SongId).Distinct().ToList();
+    }
+
     private static List<Song> ApplySmartConditions(List<Song> songs, Dictionary<string, string>? conditions)
     {
         if (conditions is null || conditions.Count == 0) return songs;
 
         IEnumerable<Song> query = songs;
 
-        var categories = ReadCsv(conditions, "categories");
+        var categories = ReadCsv(conditions, "categories", "category");
         if (categories.Count > 0)
             query = query.Where(s => categories.Contains(s.Category, StringComparer.OrdinalIgnoreCase));
 
-        var keys = ReadCsv(conditions, "keys");
+        var keys = ReadCsv(conditions, "keys", "key");
         if (keys.Count > 0)
             query = query.Where(s => keys.Contains(s.Key, StringComparer.OrdinalIgnoreCase));
 
-        var moods = ReadCsv(conditions, "moods");
+        var moods = ReadCsv(conditions, "moods", "mood");
         if (moods.Count > 0)
             query = query.Where(s => moods.Any(m => (s.Mood ?? string.Empty).Contains(m, StringComparison.OrdinalIgnoreCase)));
 
-        var genres = ReadCsv(conditions, "genres");
+        var genres = ReadCsv(conditions, "genres", "genre");
         if (genres.Count > 0)
             query = query.Where(s => s.Genres.Any(g => genres.Contains(g, StringComparer.OrdinalIgnoreCase)));
 
-        var times = ReadCsv(conditions, "times");
+        var times = ReadCsv(conditions, "times", "time", "timeSignature", "timeSignatures");
         if (times.Count > 0)
-            query = query.Where(s => times.Contains(s.Time, StringComparer.OrdinalIgnoreCase));
+        {
+            var normalizedTimes = times.Select(NormalizeMeter).Where(v => !string.IsNullOrWhiteSpace(v)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            query = query.Where(s => normalizedTimes.Contains(NormalizeMeter(s.Time)));
+        }
 
-        var taals = ReadCsv(conditions, "taals");
+        var taals = ReadCsv(conditions, "taals", "taal");
         if (taals.Count > 0)
-            query = query.Where(s => taals.Contains(s.Taal, StringComparer.OrdinalIgnoreCase));
+        {
+            var normalizedTaals = taals.Select(NormalizeTextToken).Where(v => !string.IsNullOrWhiteSpace(v)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            query = query.Where(s => normalizedTaals.Contains(NormalizeTextToken(s.Taal)));
+        }
+
+        var singers = ReadCsv(conditions, "singers", "singer", "artists", "artist");
+        if (singers.Count > 0)
+            query = query.Where(s => !string.IsNullOrWhiteSpace(s.Singer) && singers.Contains(s.Singer!, StringComparer.OrdinalIgnoreCase));
+
+        var tags = ReadCsv(conditions, "tags", "tag");
+        if (tags.Count > 0)
+            query = query.Where(s => s.Tags is not null && s.Tags.Any(t => tags.Contains(t, StringComparer.OrdinalIgnoreCase)));
 
         var tempoMin = 0;
         var tempoMax = 0;
-        var hasTempoMin = conditions.TryGetValue("tempoMin", out var tempoMinRaw) && int.TryParse(tempoMinRaw, out tempoMin);
-        var hasTempoMax = conditions.TryGetValue("tempoMax", out var tempoMaxRaw) && int.TryParse(tempoMaxRaw, out tempoMax);
+        var hasTempoMin = TryReadInt(conditions, out tempoMin, "tempoMin", "minTempo");
+        var hasTempoMax = TryReadInt(conditions, out tempoMax, "tempoMax", "maxTempo");
+        hasTempoMin = hasTempoMin && tempoMin > 0;
+        hasTempoMax = hasTempoMax && tempoMax > 0;
         if (hasTempoMin || hasTempoMax)
         {
             query = query.Where(s => int.TryParse(s.Tempo, out var bpm) && (!hasTempoMin || bpm >= tempoMin) && (!hasTempoMax || bpm <= tempoMax));
@@ -201,13 +225,93 @@ public class SetlistService : ISetlistService
         return query.OrderBy(s => s.Title).ToList();
     }
 
-    private static List<string> ReadCsv(Dictionary<string, string> conditions, string key)
+    private static List<string> ReadCsv(Dictionary<string, string> conditions, params string[] keys)
     {
-        if (!conditions.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw)) return new List<string>();
+        if (!TryReadRaw(conditions, out var raw, keys) || string.IsNullOrWhiteSpace(raw)) return new List<string>();
+
+        var parsedArray = TryParseStringArray(raw);
+        if (parsedArray is not null)
+            return parsedArray;
+
         return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(CleanListToken)
             .Where(v => !string.IsNullOrWhiteSpace(v))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static bool TryReadRaw(Dictionary<string, string> conditions, out string raw, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (conditions.TryGetValue(key, out var candidate) && !string.IsNullOrWhiteSpace(candidate))
+            {
+                raw = candidate;
+                return true;
+            }
+        }
+
+        raw = string.Empty;
+        return false;
+    }
+
+    private static bool TryReadInt(Dictionary<string, string> conditions, out int value, params string[] keys)
+    {
+        value = 0;
+        if (!TryReadRaw(conditions, out var raw, keys)) return false;
+        raw = CleanListToken(raw);
+        return int.TryParse(raw, out value);
+    }
+
+    private static List<string>? TryParseStringArray(string raw)
+    {
+        var trimmed = raw.Trim();
+        if (!trimmed.StartsWith("[", StringComparison.Ordinal) || !trimmed.EndsWith("]", StringComparison.Ordinal))
+            return null;
+
+        try
+        {
+            var asStringArray = JsonSerializer.Deserialize<List<string>>(trimmed);
+            if (asStringArray is not null)
+            {
+                return asStringArray
+                    .Select(CleanListToken)
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+        }
+        catch
+        {
+            // Continue with non-JSON fallback parsing below.
+        }
+
+        var inner = trimmed.Trim('[', ']');
+        return inner.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(CleanListToken)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string CleanListToken(string token)
+    {
+        return token
+            .Trim()
+            .Trim('"', '\'', '[', ']')
+            .Trim();
+    }
+
+    private static string NormalizeMeter(string? meter)
+    {
+        if (string.IsNullOrWhiteSpace(meter)) return string.Empty;
+        return meter.Trim().Replace(" ", string.Empty);
+    }
+
+    private static string NormalizeTextToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        return value.Trim();
     }
 
     private static void EnsureCanManuallyEditSongs(Setlist existing, string userId, bool isAdmin)

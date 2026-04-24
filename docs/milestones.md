@@ -2,6 +2,8 @@
 
 Track progress across all development phases.
 
+> Planning backlog only. For current migration status, use `CSHARP_MIGRATION_PLAN.md` as the source of truth.
+
 ---
 
 ## Status Legend

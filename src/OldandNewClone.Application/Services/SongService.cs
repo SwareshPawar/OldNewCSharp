@@ -104,7 +104,7 @@ public class SongService : ISongService
     }
 
     private static SongListItemDto MapToListItem(Song s) => new(
-        s.SongId, s.Title, s.Category, s.Key, s.Genres, s.Singer, s.Mood);
+        s.SongId, s.Title, s.Category, s.Key, s.Genres, s.Singer, s.Mood, s.Tempo, s.Time, s.Taal, s.Tags);
 
     private static SongDto MapToDto(Song s) => new(
         s.SongId, s.Title, s.Category, s.Key,
