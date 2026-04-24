@@ -1,3 +1,12 @@
+# Archive Notice
+
+This file is archived for implementation summary/history only.
+
+- Canonical migration status and roadmap: [CSHARP_MIGRATION_PLAN.md](CSHARP_MIGRATION_PLAN.md)
+- Do not update progress/status in this file.
+
+---
+
 # Authentication System - Implementation Summary
 
 ## ✅ Phase 2 Complete: Authentication System

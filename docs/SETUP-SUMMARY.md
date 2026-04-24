@@ -1,3 +1,12 @@
+# Archive Notice
+
+This file is archived setup history.
+
+- Canonical migration status and roadmap: [CSHARP_MIGRATION_PLAN.md](../CSHARP_MIGRATION_PLAN.md)
+- Do not update progress/status in this file.
+
+---
+
 # OldandNewClone - Architecture & Setup Summary
 
 **Date**: 2026-04-15  

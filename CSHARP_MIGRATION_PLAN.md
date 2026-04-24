@@ -5,6 +5,24 @@
 ## Overview
 This document outlines the complete migration strategy for porting the Old & New Song Management application from Node.js to C# .NET 10 with MAUI and Blazor.
 
+## Single Source of Truth Policy
+
+This file is the only document that should be updated for migration status, roadmap, and phase progress.
+
+### Update Rule
+- Update migration progress only in this file.
+- Keep other migration-related files as archived implementation/reference material.
+
+### Archived Reference Documents (Do Not Update Status Here)
+- `AUTO_DATABASE_MIGRATION.md`
+- `NODEJS_AUTH_MIGRATION.md`
+- `SHARED_MONGODB_MIGRATION_GUIDE.md`
+- `AUTH_SYSTEM_ANALYSIS.md`
+- `AUTHENTICATION_SYSTEM.md`
+- `NEXT_STEPS_SONG_MANAGEMENT.md`
+- `docs/NODE_MAIN_MIGRATION_BASELINE.md`
+- `docs/SETUP-SUMMARY.md`
+
 ## Project Information
 
 ### Source Application (Node.js)
@@ -250,15 +268,18 @@ Result: Both Node.js and .NET users can login without data changes
 - ✅ Compact dropdown-style multi-selects for Singer / Mood / Genre in Add/Edit dialogs
 - ✅ Search inside dropdown panels for Singer / Mood / Genre
 - ✅ Selected items shown as removable capsules inside dropdown panels
+- ✅ ESC to close dialogs and drawers
+- ✅ Improve dark-mode lyrics readability in Panel 3
+- ✅ Simplify transpose indicator display to signed numeric format only
+- ✅ Focus handling for modals
 
 **Current Step (In Progress)**:
-- 🔄 Improve dark-mode lyrics readability in Panel 3
-- 🔄 Simplify transpose indicator display to signed numeric format only
 - 🔄 Add quick “new setlist” actions on Panel 1 setlist section headers (Global/My), while keeping Smart setlists read-only
+- 🔄 Keyboard shortcuts
+- 🔄 Better mobile transitions
+- 🔄 Unified error/loading visuals
 
 **Next Deliverables**:
-- ⏳ ESC to close dialogs and drawers
-- ⏳ Focus handling for modals
 - ⏳ Keyboard shortcuts
 - ⏳ Better mobile transitions
 - ⏳ Unified error/loading visuals

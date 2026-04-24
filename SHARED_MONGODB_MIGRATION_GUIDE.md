@@ -1,3 +1,12 @@
+# Archive Notice
+
+This file is archived for historical interoperability implementation detail only.
+
+- Canonical migration status and roadmap: [CSHARP_MIGRATION_PLAN.md](CSHARP_MIGRATION_PLAN.md)
+- Do not update progress/status in this file.
+
+---
+
 # Shared MongoDB Backend Migration Guide
 
 ## Problem Statement

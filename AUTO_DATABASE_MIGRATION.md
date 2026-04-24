@@ -1,3 +1,12 @@
+# Archive Notice
+
+This file is archived for historical implementation detail only.
+
+- Canonical migration status and roadmap: [CSHARP_MIGRATION_PLAN.md](CSHARP_MIGRATION_PLAN.md)
+- Do not update progress/status in this file.
+
+---
+
 # Automatic Database Migration Fix
 
 ## 🎯 Problem Solved

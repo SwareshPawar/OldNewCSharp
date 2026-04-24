@@ -1,3 +1,13 @@
+# Archive Notice
+
+This file is archived as a reference baseline map.
+
+- Canonical migration status and roadmap: [CSHARP_MIGRATION_PLAN.md](../CSHARP_MIGRATION_PLAN.md)
+- Keep this file for source mapping reference only.
+- Do not update migration progress/status in this file.
+
+---
+
 # Node Main Migration Baseline
 
 This document defines the migration baseline from the Node.js source repository into this .NET repository.

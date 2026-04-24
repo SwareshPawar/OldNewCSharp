@@ -1,3 +1,12 @@
+# Archive Notice
+
+This file is archived analysis from an earlier migration stage.
+
+- Canonical migration status and roadmap: [CSHARP_MIGRATION_PLAN.md](CSHARP_MIGRATION_PLAN.md)
+- Do not update progress/status in this file.
+
+---
+
 # Authentication System Analysis - Auth0 vs Custom
 
 ## 🔍 **Discovery: Original System Used Auth0**

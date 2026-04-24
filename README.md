@@ -99,6 +99,8 @@ dotnet build -f net10.0-windows10.0.19041.0 -t:Run
 
 **Migration Status**: Tracked in `CSHARP_MIGRATION_PLAN.md` (canonical status source)
 
+Only `CSHARP_MIGRATION_PLAN.md` should be updated for migration progress/status. Other migration docs are archived references.
+
 See [milestones.md](docs/milestones.md) for planning backlog.
 
 ## 📚 Documentation

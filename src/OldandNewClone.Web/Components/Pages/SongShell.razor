@@ -11,7 +11,7 @@
 
 <PageTitle>🎵 OldandNew — Songs</PageTitle>
 
-<div class="shell @AppThemeClass">
+<div class="shell @AppThemeClass" tabindex="0" @onkeydown="HandleGlobalKeyDown">
 
     <!-- PANEL 1 — Navigation Rail -->
     <div class="panel-1 @(mobilePanelIndex == 0 ? "mobile-show" : "mobile-hide")">
@@ -410,8 +410,7 @@
                     <span class="transpose-label">🎹 Transpose</span>
                     <button @onclick="TransposeDown" class="transpose-btn">−</button>
                     <span class="transpose-display">
-                        @if (transposeSteps == 0) { <span>Original</span> }
-                        else { <span>@(transposeSteps > 0 ? $"+{transposeSteps}" : $"{transposeSteps}") semitones</span> }
+                        <span>@TransposeIndicator</span>
                     </span>
                     <button @onclick="TransposeUp" class="transpose-btn">+</button>
                     @if (transposeSteps != 0)
@@ -496,7 +495,7 @@
 @if (showSongModal)
 {
     <div class="song-modal-overlay" @onclick="CloseSongModal"></div>
-    <div class="song-modal-container" role="dialog" aria-modal="true">
+    <div class="song-modal-container" role="dialog" aria-modal="true" tabindex="0" @onkeydown="HandleGlobalKeyDown">
         <div class="song-modal-header">
             <h3>@(isEditModal ? "✏️ Edit Song" : "➕ Add Song")</h3>
             <button class="song-modal-close" @onclick="CloseSongModal">✕</button>
@@ -647,7 +646,7 @@
 @if (showSetlistModal)
 {
     <div class="song-modal-overlay" @onclick="CloseSetlistModal"></div>
-    <div class="song-modal-container" role="dialog" aria-modal="true">
+    <div class="song-modal-container" role="dialog" aria-modal="true" tabindex="0" @onkeydown="HandleGlobalKeyDown">
         <div class="song-modal-header">
             <h3>@(isEditSetlistModal ? "✏️ Edit Setlist" : "🗂️ New Setlist")</h3>
             <button class="song-modal-close" @onclick="CloseSetlistModal">✕</button>
@@ -861,7 +860,7 @@
 @if (showManageSongsModal)
 {
     <div class="song-modal-overlay" @onclick="CloseManageSongsModal"></div>
-    <div class="song-modal-container manage-songs-modal" role="dialog" aria-modal="true">
+    <div class="song-modal-container manage-songs-modal" role="dialog" aria-modal="true" tabindex="0" @onkeydown="HandleGlobalKeyDown">
         <div class="song-modal-header">
             <h3>🎵 Manage Songs — @selectedSetlist?.Name</h3>
             <button class="song-modal-close" @onclick="CloseManageSongsModal">✕</button>
@@ -996,6 +995,7 @@
         background: #0b1220;
         color: #e2e8f0;
     }
+    .shell:focus { outline: none; }
 
     .shell.theme-dark .panel-1 { background: #0f172a; border-right-color: #334155; }
     .shell.theme-dark .panel-2 { background: #111827; border-right-color: #334155; }
@@ -1011,6 +1011,29 @@
     .shell.theme-dark .song-row { border-bottom-color: #1f2937; }
     .shell.theme-dark .song-row:hover { background: #1f2937; }
     .shell.theme-dark .song-row-active { background: #1e3a8a !important; }
+    .shell.theme-dark .lyrics-section,
+    .shell.theme-dark .notes-section {
+        background: rgba(15, 23, 42, 0.75);
+        border-color: #334155;
+    }
+    .shell.theme-dark .lyrics-body {
+        color: #f1f5f9;
+        font-weight: 500;
+    }
+    .shell.theme-dark .chord-line {
+        color: #93c5fd;
+        font-weight: 800;
+    }
+    .shell.theme-dark .inline-chord {
+        color: #f9a8d4;
+        font-weight: 800;
+    }
+    .shell.theme-dark .p2-loading,
+    .shell.theme-dark .p2-empty,
+    .shell.theme-dark .p3-empty,
+    .shell.theme-dark .p3-loading {
+        color: #cbd5e1;
+    }
     .shell.theme-dark .p2-search,
     .shell.theme-dark .p2-filter-select,
     .shell.theme-dark .form-input,
@@ -1450,10 +1473,37 @@
     }
 
     @@media (max-width: 700px) {
-        .shell { grid-template-columns: 1fr; grid-template-rows: 1fr; height: 100dvh; }
-        .panel-1, .panel-2, .panel-3 { grid-column: 1; grid-row: 1; }
-        .mobile-show { display: flex; flex-direction: column; }
-        .mobile-hide { display: none !important; }
+        .shell {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+            height: 100dvh;
+            position: relative;
+            overflow: hidden;
+        }
+        .panel-1, .panel-2, .panel-3 {
+            grid-column: 1;
+            grid-row: 1;
+            position: absolute;
+            inset: 0;
+            transition: transform 0.22s ease, opacity 0.18s ease;
+            will-change: transform, opacity;
+        }
+        .mobile-show {
+            display: flex !important;
+            flex-direction: column;
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+            z-index: 2;
+        }
+        .mobile-hide {
+            display: flex !important;
+            flex-direction: column;
+            opacity: 0;
+            transform: translateX(14px);
+            pointer-events: none;
+            z-index: 1;
+        }
         .p2-back-btn { display: block; }
         .p3-back-btn { display: block; }
         .suggested-drawer { width: 100%; }
@@ -1635,6 +1685,16 @@
         border-radius: 6px;
         font-size: 0.85rem;
     }
+    .shell.theme-dark .form-error {
+        background: #3f1d25;
+        color: #fecaca;
+        border-left-color: #ef4444;
+    }
+    .shell.theme-dark .form-success {
+        background: #0f3026;
+        color: #bbf7d0;
+        border-left-color: #22c55e;
+    }
 
     .skeleton {
         background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
@@ -1743,6 +1803,7 @@
     private string manageSongsSearchText = "";
     private bool isManageSongsSaving = false;
     private string? manageSongsError;
+    private string? activeFocusTrapSelector;
 
     private static readonly string[] MusicKeys =
         { "C","C#","D","D#","E","F","F#","G","G#","A","A#","B",
@@ -2101,6 +2162,8 @@
         }
     }
 
+    private string TransposeIndicator => transposeSteps >= 0 ? $"+{transposeSteps}" : transposeSteps.ToString();
+
     protected override async Task OnInitializedAsync()
     {
         await LoadShellPreferencesAsync();
@@ -2124,6 +2187,113 @@
             if (persistedSongId is > 0 && allSongs.Any(s => s.Id == persistedSongId.Value))
                 await SelectSong(persistedSongId.Value, persistState: false);
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var targetSelector = GetActiveModalSelector();
+        if (!string.Equals(targetSelector, activeFocusTrapSelector, StringComparison.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(targetSelector))
+                await DeactivateFocusTrapAsync();
+            else
+                await ActivateFocusTrapAsync(targetSelector);
+
+            activeFocusTrapSelector = targetSelector;
+        }
+    }
+
+    private string? GetActiveModalSelector()
+    {
+        if (showManageSongsModal) return ".manage-songs-modal";
+        if (showSongModal || showSetlistModal) return ".song-modal-container:not(.manage-songs-modal)";
+        return null;
+    }
+
+    private async Task ActivateFocusTrapAsync(string selector)
+    {
+        var selectorJson = JsonSerializer.Serialize(selector);
+        const string scriptTemplate = @"
+(() => {
+  window.__oldnewFocusTrap = window.__oldnewFocusTrap || {};
+  const trap = window.__oldnewFocusTrap;
+
+  if (typeof trap.dispose === 'function') {
+    trap.dispose();
+  }
+
+  const container = document.querySelector(__SELECTOR__);
+  if (!container) return;
+
+  trap.previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+  const getFocusable = () =>
+    Array.from(container.querySelectorAll('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex=""-1""])'))
+      .filter(el => el instanceof HTMLElement)
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+
+  const initial = getFocusable()[0] || container;
+  if (initial instanceof HTMLElement) {
+    initial.focus();
+  }
+
+  const onKeyDown = (ev) => {
+    if (ev.key !== 'Tab') return;
+    const focusable = getFocusable();
+    if (focusable.length === 0) {
+      ev.preventDefault();
+      if (container instanceof HTMLElement) container.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (ev.shiftKey && document.activeElement === first) {
+      ev.preventDefault();
+      if (last instanceof HTMLElement) last.focus();
+      return;
+    }
+
+    if (!ev.shiftKey && document.activeElement === last) {
+      ev.preventDefault();
+      if (first instanceof HTMLElement) first.focus();
+    }
+  };
+
+  document.addEventListener('keydown', onKeyDown, true);
+  trap.dispose = () => document.removeEventListener('keydown', onKeyDown, true);
+})();";
+
+        var script = scriptTemplate.Replace("__SELECTOR__", selectorJson);
+        await JS.InvokeVoidAsync("eval", script);
+    }
+
+    private async Task DeactivateFocusTrapAsync()
+    {
+        const string script = """
+(() => {
+    const trap = window.__oldnewFocusTrap;
+    if (!trap) return;
+
+    if (typeof trap.dispose === 'function') {
+        trap.dispose();
+        trap.dispose = null;
+    }
+
+    const restore = trap.previous;
+    trap.previous = null;
+    if (restore instanceof HTMLElement) {
+        restore.focus();
+        return;
+    }
+
+    const shell = document.querySelector('.shell');
+    if (shell instanceof HTMLElement) {
+        shell.focus();
+    }
+})();
+""";
+        await JS.InvokeVoidAsync("eval", script);
     }
 
     private async Task LoadShellPreferencesAsync()
@@ -2385,6 +2555,75 @@
     }
 
     private void CloseSuggestedDrawer() => suggestedDrawerOpen = false;
+    private async Task HandleGlobalKeyDown(KeyboardEventArgs e)
+    {
+        if (string.Equals(e.Key, "Escape", StringComparison.OrdinalIgnoreCase))
+        {
+            if (showSongModal)
+            {
+                CloseSongModal();
+                return;
+            }
+
+            if (showSetlistModal)
+            {
+                CloseSetlistModal();
+                return;
+            }
+
+            if (showManageSongsModal)
+            {
+                CloseManageSongsModal();
+                return;
+            }
+
+            if (suggestedDrawerOpen)
+                CloseSuggestedDrawer();
+
+            return;
+        }
+
+        if (showSongModal || showSetlistModal || showManageSongsModal)
+            return;
+
+        var isInputFocused = await JS.InvokeAsync<bool>("eval", "(() => { const el = document.activeElement; if (!el) return false; const tag = (el.tagName || '').toUpperCase(); return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!el.isContentEditable; })()");
+        if (isInputFocused)
+            return;
+
+        if (e.Key == "/")
+        {
+            await JS.InvokeVoidAsync("eval", "document.querySelector('.p2-search')?.focus()");
+            return;
+        }
+
+        if (string.Equals(e.Key, "n", StringComparison.OrdinalIgnoreCase) && UserState.IsLoggedIn)
+        {
+            OpenAddModal();
+            return;
+        }
+
+        if (string.Equals(e.Key, "s", StringComparison.OrdinalIgnoreCase) && selectedSong is not null)
+        {
+            ToggleSuggestedDrawer();
+            return;
+        }
+
+        if (e.Key == "[")
+        {
+            TransposeDown();
+            return;
+        }
+
+        if (e.Key == "]")
+        {
+            TransposeUp();
+            return;
+        }
+
+        if (e.Key == "0")
+            ResetTranspose();
+    }
+
     private async Task SelectSuggestedSong(int id) { suggestedDrawerOpen = false; await SelectSong(id); }
     private void TransposeUp() => transposeSteps++;
     private void TransposeDown() => transposeSteps--;

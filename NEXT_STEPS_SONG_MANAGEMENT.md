@@ -1,3 +1,12 @@
+# Archive Notice
+
+This file is archived planning from an earlier phase.
+
+- Canonical migration status and roadmap: [CSHARP_MIGRATION_PLAN.md](CSHARP_MIGRATION_PLAN.md)
+- Do not update progress/status in this file.
+
+---
+
 # Next Steps - Song Management Implementation
 
 ## Current Status ✅
