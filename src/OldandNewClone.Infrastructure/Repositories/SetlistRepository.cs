@@ -56,6 +56,8 @@ public class SetlistRepository : ISetlistRepository
     public async Task<Setlist> CreateAsync(Setlist setlist)
     {
         var collection = GetCollection(setlist.Type);
+        if (setlist.RawId is null || setlist.RawId.IsBsonNull)
+            setlist.RawId = ObjectId.GenerateNewId();
         await collection.InsertOneAsync(setlist);
         return setlist;
     }

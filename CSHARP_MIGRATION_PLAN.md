@@ -242,7 +242,17 @@ Result: Both Node.js and .NET users can login without data changes
 ---
 
 ### 🔄 Phase 11: Shell Polish
-**Status**: Planned
+**Status**: In Progress
+
+**Completed Deliverables**:
+- ✅ Compact dropdown-style multi-selects for Singer / Mood / Genre in Add/Edit dialogs
+- ✅ Search inside dropdown panels for Singer / Mood / Genre
+- ✅ Selected items shown as removable capsules inside dropdown panels
+
+**Current Step (In Progress)**:
+- 🔄 Improve dark-mode lyrics readability in Panel 3
+- 🔄 Simplify transpose indicator display to signed numeric format only
+- 🔄 Add quick “new setlist” actions on Panel 1 setlist section headers (Global/My), while keeping Smart setlists read-only
 
 **Next Deliverables**:
 - ⏳ ESC to close dialogs and drawers

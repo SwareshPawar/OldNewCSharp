@@ -83,5 +83,12 @@ public class SetlistsController : ControllerBase
         return deleted ? Ok(new { success = true }) : NotFound();
     }
 
+    [HttpPost("{id}/sync")]
+    public async Task<IActionResult> SyncSmartSetlist(string id)
+    {
+        var updated = await _setlistService.SyncSmartSetlistAsync(GetUserId(), User.IsInRole("Admin"), id);
+        return updated is null ? NotFound() : Ok(updated);
+    }
+
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub") ?? string.Empty;
 }

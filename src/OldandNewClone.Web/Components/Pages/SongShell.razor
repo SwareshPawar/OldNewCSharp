@@ -44,12 +44,21 @@
 
             @if (UserState.IsLoggedIn)
             {
-                <button class="p1-nav-item @(activeSection == "setlists-global" ? "nav-active" : "")"
-                        @onclick='() => ToggleSetlistFolder("setlists-global")'>
-                    <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-global") ? "📂" : "📁")</span>
-                    <span class="nav-label">Global Setlists</span>
-                    <span class="nav-count">@globalSetlists.Count</span>
-                </button>
+                <div class="setlist-row setlist-folder-row">
+                    <button class="p1-nav-item @(activeSection == "setlists-global" ? "nav-active" : "")"
+                            @onclick='() => ToggleSetlistFolder("setlists-global")'>
+                        <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-global") ? "📂" : "📁")</span>
+                        <span class="nav-label">Global Setlists</span>
+                        <span class="nav-count">@globalSetlists.Count</span>
+                    </button>
+                    @if (UserState.IsAdmin)
+                    {
+                        <div class="setlist-actions">
+                            <button class="setlist-icon-btn" title="New global setlist"
+                                    @onclick='() => OpenCreateSetlistModalFor("setlists-global")'>➕</button>
+                        </div>
+                    }
+                </div>
                 @if (expandedSetlistFolders.Contains("setlists-global"))
                 {
                     foreach (var item in globalSetlists)
@@ -75,12 +84,18 @@
                     }
                 }
 
-                <button class="p1-nav-item @(activeSection == "setlists-my" ? "nav-active" : "")"
-                        @onclick='() => ToggleSetlistFolder("setlists-my")'>
-                    <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-my") ? "📂" : "📁")</span>
-                    <span class="nav-label">My Setlists</span>
-                    <span class="nav-count">@mySetlists.Count</span>
-                </button>
+                <div class="setlist-row setlist-folder-row">
+                    <button class="p1-nav-item @(activeSection == "setlists-my" ? "nav-active" : "")"
+                            @onclick='() => ToggleSetlistFolder("setlists-my")'>
+                        <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-my") ? "📂" : "📁")</span>
+                        <span class="nav-label">My Setlists</span>
+                        <span class="nav-count">@mySetlists.Count</span>
+                    </button>
+                    <div class="setlist-actions">
+                        <button class="setlist-icon-btn" title="New my setlist"
+                                @onclick='() => OpenCreateSetlistModalFor("setlists-my")'>➕</button>
+                    </div>
+                </div>
                 @if (expandedSetlistFolders.Contains("setlists-my"))
                 {
                     foreach (var item in mySetlists)
@@ -102,12 +117,18 @@
                     }
                 }
 
-                <button class="p1-nav-item @(activeSection == "setlists-smart" ? "nav-active" : "")"
-                        @onclick='() => ToggleSetlistFolder("setlists-smart")'>
-                    <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-smart") ? "📂" : "📁")</span>
-                    <span class="nav-label">Smart Setlists</span>
-                    <span class="nav-count">@smartSetlists.Count</span>
-                </button>
+                <div class="setlist-row setlist-folder-row">
+                    <button class="p1-nav-item @(activeSection == "setlists-smart" ? "nav-active" : "")"
+                            @onclick='() => ToggleSetlistFolder("setlists-smart")'>
+                        <span class="nav-icon">@(expandedSetlistFolders.Contains("setlists-smart") ? "📂" : "📁")</span>
+                        <span class="nav-label">Smart Setlists</span>
+                        <span class="nav-count">@smartSetlists.Count</span>
+                    </button>
+                    <div class="setlist-actions">
+                        <button class="setlist-icon-btn" title="New smart setlist"
+                                @onclick='() => OpenCreateSetlistModalFor("setlists-smart")'>➕</button>
+                    </div>
+                </div>
                 @if (expandedSetlistFolders.Contains("setlists-smart"))
                 {
                     foreach (var item in smartSetlists)
@@ -120,10 +141,14 @@
                                 <span class="nav-count">@item.SongCount</span>
                             </button>
                             <div class="setlist-actions">
+                                <button class="setlist-icon-btn" title="Edit smart setlist"
+                                        @onclick='async () => await OpenEditSetlistModalFor("setlists-smart", item.Id)'>✏️</button>
                                 <button class="setlist-icon-btn" title="Sync smart setlist songs"
                                         @onclick='async () => await SyncSmartSetlist(item.Id)'>
                                     @(isSmartSetlistSyncing && syncingSmartSetlistId == item.Id ? "⏳" : "🔄")
                                 </button>
+                                <button class="setlist-icon-btn danger" title="Delete smart setlist"
+                                        @onclick='async () => await DeleteSetlistFromPanel1("setlists-smart", item.Id)'>🗑️</button>
                             </div>
                         </div>
                     }
@@ -179,6 +204,10 @@
                 @if (CanManageSongsInSelectedSetlist)
                 {
                     <button class="p2-manage-btn" title="Manage songs in setlist" @onclick="OpenManageSongsModal">🎵 Manage</button>
+                }
+                else if (CanManageSmartSetlistFilters)
+                {
+                    <button class="p2-manage-btn" title="Manage smart setlist" @onclick="OpenEditSetlistModal">⚙️ Filters</button>
                 }
             </div>
 
@@ -904,7 +933,14 @@
         gap: 4px;
         margin-bottom: 2px;
     }
+    .setlist-folder-row {
+        margin-bottom: 4px;
+    }
     .setlist-row .p1-nav-child-item {
+        flex: 1;
+        margin-bottom: 0;
+    }
+    .setlist-row .p1-nav-item {
         flex: 1;
         margin-bottom: 0;
     }
@@ -1418,7 +1454,7 @@
     private string appThemeMode = "auto";
     private bool suggestedDrawerOpen = false;
     private List<SongItem> suggestedSongs = new();
-    private HashSet<string> expandedSetlistFolders = new() { "setlists-global", "setlists-my", "setlists-smart" };
+    private HashSet<string> expandedSetlistFolders = new();
     private string? selectedSetlistShellId;
     private bool isSmartSetlistSyncing;
     private string? syncingSmartSetlistId;
@@ -1508,11 +1544,13 @@
     private List<SongItem> SetlistNewSongs => GetSetlistSongs().Where(s => s.Category == "New").OrderBy(s => s.Title).ToList();
     private List<SongItem> SetlistOldSongs => GetSetlistSongs().Where(s => s.Category == "Old").OrderBy(s => s.Title).ToList();
     private bool IsSmartSetlistContext => activeSection == "setlists-smart";
-    private bool CanCreateSetlist => UserState.IsLoggedIn && (activeSection == "setlists-my" || (activeSection == "setlists-global" && UserState.IsAdmin));
+    private bool CanCreateSetlist => UserState.IsLoggedIn &&
+        (activeSection == "setlists-my" || activeSection == "setlists-smart" || (activeSection == "setlists-global" && UserState.IsAdmin));
     private bool CanModifySelectedSetlist => selectedSetlist is not null && CanModifySetlistInSection(activeSection);
     private bool CanManageSongsInSelectedSetlist => selectedSetlist is not null && CanModifySetlistInSection(activeSection) && !IsSmartSetlistContext;
+    private bool CanManageSmartSetlistFilters => selectedSetlist is not null && IsSmartSetlistContext && CanModifySetlistInSection(activeSection);
     private bool CanModifySetlistInSection(string section) =>
-        section == "setlists-my" || (section == "setlists-global" && UserState.IsAdmin);
+        section == "setlists-my" || section == "setlists-smart" || (section == "setlists-global" && UserState.IsAdmin);
 
     private string SectionTitle => activeSection switch
     {
@@ -2027,6 +2065,15 @@
         showSetlistModal = true;
     }
 
+    private void OpenCreateSetlistModalFor(string section)
+    {
+        if (section is not ("setlists-global" or "setlists-my" or "setlists-smart")) return;
+        if (section == "setlists-global" && !UserState.IsAdmin) return;
+        if (section is "setlists-my" or "setlists-smart" && !UserState.IsLoggedIn) return;
+        activeSection = section;
+        OpenCreateSetlistModal();
+    }
+
     private void OpenEditSetlistModal()
     {
         if (!CanModifySelectedSetlist || selectedSetlist is null) return;
@@ -2151,7 +2198,12 @@
             }
             else
             {
-                var type = activeSection == "setlists-global" ? "global" : "my";
+                var type = activeSection switch
+                {
+                    "setlists-global" => "global",
+                    "setlists-smart" => "smart",
+                    _ => "my"
+                };
                 var createDto = new
                 {
                     Name = setlistName.Trim(),
@@ -2173,7 +2225,12 @@
                 await LoadSetlistsAsync();
                 if (created is not null)
                 {
-                    var createdSection = created.Type == "global" ? "setlists-global" : "setlists-my";
+                    var createdSection = created.Type switch
+                    {
+                        "global" => "setlists-global",
+                        "smart" => "setlists-smart",
+                        _ => "setlists-my"
+                    };
                     await SelectSetlistFolderItem(createdSection, created.Id);
                 }
 
@@ -2273,6 +2330,13 @@
 
         try
         {
+            var resp = await Http.PostAsync($"api/setlists/{setlistId}/sync", null);
+            if (!resp.IsSuccessStatusCode)
+            {
+                setlistError = $"Sync failed ({resp.StatusCode}).";
+                return;
+            }
+
             await LoadSetlistsAsync();
             await SelectSetlistFolderItem("setlists-smart", setlistId);
         }

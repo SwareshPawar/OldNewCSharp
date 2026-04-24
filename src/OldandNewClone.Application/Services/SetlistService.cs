@@ -8,10 +8,12 @@ namespace OldandNewClone.Application.Services;
 public class SetlistService : ISetlistService
 {
     private readonly ISetlistRepository _setlistRepository;
+    private readonly ISongRepository _songRepository;
 
-    public SetlistService(ISetlistRepository setlistRepository)
+    public SetlistService(ISetlistRepository setlistRepository, ISongRepository songRepository)
     {
         _setlistRepository = setlistRepository;
+        _songRepository = songRepository;
     }
 
     public async Task<List<SetlistDto>> GetGlobalSetlistsAsync() =>
@@ -67,7 +69,7 @@ public class SetlistService : ISetlistService
         {
             throw new UnauthorizedAccessException("You can only modify your own setlists.");
         }
-        else if (existing.Type == SetlistTypes.Smart && existing.CreatedBy != userId && !(isAdmin && existing.IsAdminCreated == true))
+        else if (existing.Type == SetlistTypes.Smart && existing.CreatedBy != userId && !isAdmin)
         {
             throw new UnauthorizedAccessException("You do not have permission to modify this smart setlist.");
         }
@@ -130,12 +132,82 @@ public class SetlistService : ISetlistService
         {
             throw new UnauthorizedAccessException("You can only delete your own setlists.");
         }
-        else if (existing.Type == SetlistTypes.Smart && existing.CreatedBy != userId && !(isAdmin && existing.IsAdminCreated == true))
+        else if (existing.Type == SetlistTypes.Smart && existing.CreatedBy != userId && !isAdmin)
         {
             throw new UnauthorizedAccessException("You do not have permission to delete this smart setlist.");
         }
 
         return await _setlistRepository.DeleteAsync(id);
+    }
+
+    public async Task<SetlistDto?> SyncSmartSetlistAsync(string userId, bool isAdmin, string id)
+    {
+        var existing = await _setlistRepository.GetByIdAsync(id);
+        if (existing is null) return null;
+        if (existing.Type != SetlistTypes.Smart)
+            throw new InvalidOperationException("Sync is supported only for smart setlists.");
+
+        if (existing.CreatedBy != userId && !isAdmin)
+            throw new UnauthorizedAccessException("You do not have permission to sync this smart setlist.");
+
+        var songs = await _songRepository.GetAllAsync();
+        var filtered = ApplySmartConditions(songs, existing.Conditions);
+        existing.SongsRaw = filtered.Select(s => (BsonValue)s.SongId).ToList();
+        existing.UpdatedAtRaw = DateTime.UtcNow;
+
+        var updated = await _setlistRepository.UpdateAsync(existing);
+        return updated is null ? null : Map(updated);
+    }
+
+    private static List<Song> ApplySmartConditions(List<Song> songs, Dictionary<string, string>? conditions)
+    {
+        if (conditions is null || conditions.Count == 0) return songs;
+
+        IEnumerable<Song> query = songs;
+
+        var categories = ReadCsv(conditions, "categories");
+        if (categories.Count > 0)
+            query = query.Where(s => categories.Contains(s.Category, StringComparer.OrdinalIgnoreCase));
+
+        var keys = ReadCsv(conditions, "keys");
+        if (keys.Count > 0)
+            query = query.Where(s => keys.Contains(s.Key, StringComparer.OrdinalIgnoreCase));
+
+        var moods = ReadCsv(conditions, "moods");
+        if (moods.Count > 0)
+            query = query.Where(s => moods.Any(m => (s.Mood ?? string.Empty).Contains(m, StringComparison.OrdinalIgnoreCase)));
+
+        var genres = ReadCsv(conditions, "genres");
+        if (genres.Count > 0)
+            query = query.Where(s => s.Genres.Any(g => genres.Contains(g, StringComparer.OrdinalIgnoreCase)));
+
+        var times = ReadCsv(conditions, "times");
+        if (times.Count > 0)
+            query = query.Where(s => times.Contains(s.Time, StringComparer.OrdinalIgnoreCase));
+
+        var taals = ReadCsv(conditions, "taals");
+        if (taals.Count > 0)
+            query = query.Where(s => taals.Contains(s.Taal, StringComparer.OrdinalIgnoreCase));
+
+        var tempoMin = 0;
+        var tempoMax = 0;
+        var hasTempoMin = conditions.TryGetValue("tempoMin", out var tempoMinRaw) && int.TryParse(tempoMinRaw, out tempoMin);
+        var hasTempoMax = conditions.TryGetValue("tempoMax", out var tempoMaxRaw) && int.TryParse(tempoMaxRaw, out tempoMax);
+        if (hasTempoMin || hasTempoMax)
+        {
+            query = query.Where(s => int.TryParse(s.Tempo, out var bpm) && (!hasTempoMin || bpm >= tempoMin) && (!hasTempoMax || bpm <= tempoMax));
+        }
+
+        return query.OrderBy(s => s.Title).ToList();
+    }
+
+    private static List<string> ReadCsv(Dictionary<string, string> conditions, string key)
+    {
+        if (!conditions.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw)) return new List<string>();
+        return raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static void EnsureCanManuallyEditSongs(Setlist existing, string userId, bool isAdmin)

@@ -180,6 +180,60 @@ public class DebugController : ControllerBase
         }
     }
 
+    [HttpGet("smart-setlists/by-name/{name}")]
+    public async Task<IActionResult> GetSmartSetlistsByName(string name)
+    {
+        try
+        {
+            var collection = _database.GetCollection<BsonDocument>("SmartSetlists");
+            var filter = Builders<BsonDocument>.Filter.Eq("name", name);
+            var docs = await collection.Find(filter).ToListAsync();
+
+            return Ok(new
+            {
+                Name = name,
+                Count = docs.Count,
+                Ids = docs.Select(d => d.GetValue("_id", BsonNull.Value).ToString()).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading smart setlists by name {Name}", name);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("smart-setlists/by-name/{name}")]
+    public async Task<IActionResult> DeleteSmartSetlistsByName(string name)
+    {
+        try
+        {
+            var collection = _database.GetCollection<BsonDocument>("SmartSetlists");
+            var filter = Builders<BsonDocument>.Filter.Eq("name", name);
+            var existing = await collection.Find(filter).ToListAsync();
+            var deleteResult = await collection.DeleteManyAsync(filter);
+
+            return Ok(new
+            {
+                Name = name,
+                Found = existing.Count,
+                Deleted = deleteResult.DeletedCount,
+                DeletedIds = existing.Select(d => d.GetValue("_id", BsonNull.Value).ToString()).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting smart setlists by name {Name}", name);
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("health")]
+    public IActionResult Health()
+    {
+        return Ok("Debug endpoint is healthy");
+    }
+
     public class TestPasswordRequest
     {
         public string Email { get; set; } = string.Empty;
