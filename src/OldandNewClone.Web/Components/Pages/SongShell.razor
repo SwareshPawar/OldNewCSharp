@@ -351,14 +351,30 @@
                                     @onclick="ToggleFavorite" title="Favorite">
                                 @(isFavorite ? "❤️" : "🤍")
                             </button>
-                            <button class="action-btn @(inNewSetlist ? "action-set-on" : "")"
-                                    @onclick="ToggleNewSetlist" title="Add to New Setlist">
-                                @(inNewSetlist ? "✅" : "➕") New
-                            </button>
-                            <button class="action-btn @(inOldSetlist ? "action-set-on" : "")"
-                                    @onclick="ToggleOldSetlist" title="Add to Old Setlist">
-                                @(inOldSetlist ? "✅" : "➕") Old
-                            </button>
+                            <div class="song-setlist-picker">
+                                <select class="song-setlist-select"
+                                        value="@selectedActionSetlistId"
+                                        @onchange="OnSongSetlistChanged"
+                                        disabled="@(ManualSetlistOptions.Count == 0 || isSetlistToggleBusy)">
+                                    @if (ManualSetlistOptions.Count == 0)
+                                    {
+                                        <option value="">No editable setlists</option>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var option in ManualSetlistOptions)
+                                        {
+                                            <option value="@option.Id">@option.Name</option>
+                                        }
+                                    }
+                                </select>
+                                <button class="action-btn @(isSelectedSongInActionSetlist ? "action-set-on" : "")"
+                                        @onclick="ToggleSelectedSongInSetlist"
+                                        disabled="@(!CanToggleSelectedSongInSetlist)"
+                                        title="@(isSelectedSongInActionSetlist ? "Remove from selected setlist" : "Add to selected setlist")">
+                                    @(isSetlistToggleBusy ? "..." : (isSelectedSongInActionSetlist ? "- Remove" : "+ Add"))
+                                </button>
+                            </div>
                         }
                         <button class="action-btn" @onclick="ToggleSuggestedDrawer" title="Suggested songs">🎲 Suggestions</button>
                         <button class="action-btn" @onclick="DecreaseFontSize" title="Decrease font size">A−</button>
@@ -1224,8 +1240,9 @@
     private int mobilePanelIndex = 0;
     private int transposeSteps = 0;
     private bool isFavorite = false;
-    private bool inNewSetlist = false;
-    private bool inOldSetlist = false;
+    private bool isSelectedSongInActionSetlist = false;
+    private bool isSetlistToggleBusy = false;
+    private string? selectedActionSetlistId;
     private int lyricsFontSize = 16;
     private bool isAutoScrolling = false;
     private CancellationTokenSource? _scrollCts;
@@ -1774,6 +1791,14 @@
     private bool CanManageSmartSetlistFilters => selectedSetlist is not null && IsSmartSetlistContext && CanModifySetlistInSection(activeSection);
     private bool CanModifySetlistInSection(string section) =>
         section == "setlists-my" || (section == "setlists-global" && UserState.IsAdmin);
+    private bool CanToggleSelectedSongInSetlist => UserState.IsLoggedIn && selectedSongId is not null && !string.IsNullOrWhiteSpace(selectedActionSetlistId) && !isSetlistToggleBusy;
+
+    private List<SetlistShellItem> ManualSetlistOptions =>
+        (UserState.IsAdmin ? globalSetlists.Concat(mySetlists) : mySetlists)
+            .GroupBy(s => s.Id)
+            .Select(g => g.First())
+            .OrderBy(s => s.Name)
+            .ToList();
 
     private string SectionTitle => activeSection switch
     {
@@ -1943,6 +1968,10 @@
             globalSetlists = global.Select(s => new SetlistShellItem(s.Id, s.Name, s.Type, s.Songs?.Count ?? 0)).ToList();
             mySetlists = mine.Select(s => new SetlistShellItem(s.Id, s.Name, s.Type, s.Songs?.Count ?? 0)).ToList();
             smartSetlists = smart.Select(s => new SetlistShellItem(s.Id, s.Name, s.Type, s.Songs?.Count ?? 0)).ToList();
+            EnsureSelectedActionSetlist();
+
+            if (selectedSongId.HasValue)
+                await RefreshSelectedSongSetlistMembershipAsync();
         }
         catch { }
     }
@@ -2022,8 +2051,8 @@
             if (selectedSong != null && UserState.IsLoggedIn)
             {
                 isFavorite = userData.Favorites.Contains(id);
-                inNewSetlist = userData.NewSetlist.Contains(id);
-                inOldSetlist = userData.OldSetlist.Contains(id);
+                EnsureSelectedActionSetlist();
+                await RefreshSelectedSongSetlistMembershipAsync();
             }
             if (persistState)
             {
@@ -2375,24 +2404,79 @@
         ApplyFilters();
     }
 
-    private async Task ToggleNewSetlist()
+    private async Task OnSongSetlistChanged(ChangeEventArgs e)
     {
-        if (!UserState.IsLoggedIn || selectedSongId is null) return;
-        await Http.PostAsync($"api/userdata/{UserState.UserId}/new-setlist/{selectedSongId}", null);
-        inNewSetlist = !inNewSetlist;
-        if (inNewSetlist) userData.NewSetlist.Add(selectedSongId.Value);
-        else userData.NewSetlist.Remove(selectedSongId.Value);
-        ApplyFilters();
+        selectedActionSetlistId = e.Value?.ToString();
+        await RefreshSelectedSongSetlistMembershipAsync();
     }
 
-    private async Task ToggleOldSetlist()
+    private void EnsureSelectedActionSetlist()
     {
-        if (!UserState.IsLoggedIn || selectedSongId is null) return;
-        await Http.PostAsync($"api/userdata/{UserState.UserId}/old-setlist/{selectedSongId}", null);
-        inOldSetlist = !inOldSetlist;
-        if (inOldSetlist) userData.OldSetlist.Add(selectedSongId.Value);
-        else userData.OldSetlist.Remove(selectedSongId.Value);
-        ApplyFilters();
+        var options = ManualSetlistOptions;
+        if (options.Count == 0)
+        {
+            selectedActionSetlistId = null;
+            isSelectedSongInActionSetlist = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(selectedActionSetlistId) || !options.Any(s => s.Id == selectedActionSetlistId))
+            selectedActionSetlistId = options[0].Id;
+    }
+
+    private async Task RefreshSelectedSongSetlistMembershipAsync()
+    {
+        if (selectedSongId is null || string.IsNullOrWhiteSpace(selectedActionSetlistId) || !UserState.IsLoggedIn)
+        {
+            isSelectedSongInActionSetlist = false;
+            return;
+        }
+
+        try
+        {
+            var setlist = await Http.GetFromJsonAsync<SetlistResponse>($"api/setlists/{selectedActionSetlistId}");
+            isSelectedSongInActionSetlist = setlist?.Songs?.Contains(selectedSongId.Value) == true;
+        }
+        catch
+        {
+            isSelectedSongInActionSetlist = false;
+        }
+    }
+
+    private async Task ToggleSelectedSongInSetlist()
+    {
+        if (!CanToggleSelectedSongInSetlist || selectedSongId is null || string.IsNullOrWhiteSpace(selectedActionSetlistId))
+            return;
+
+        isSetlistToggleBusy = true;
+        setlistError = null;
+
+        try
+        {
+            HttpResponseMessage resp = isSelectedSongInActionSetlist
+                ? await Http.DeleteAsync($"api/setlists/{selectedActionSetlistId}/songs/{selectedSongId.Value}")
+                : await Http.PostAsync($"api/setlists/{selectedActionSetlistId}/songs/{selectedSongId.Value}", null);
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                setlistError = $"Setlist update failed ({resp.StatusCode}).";
+                return;
+            }
+
+            isSelectedSongInActionSetlist = !isSelectedSongInActionSetlist;
+            await LoadSetlistsAsync();
+
+            if (selectedSetlistShellId == selectedActionSetlistId)
+                await SelectSetlistFolderItem(activeSection, selectedActionSetlistId);
+        }
+        catch (Exception ex)
+        {
+            setlistError = ex.Message;
+        }
+        finally
+        {
+            isSetlistToggleBusy = false;
+        }
     }
 
     private async Task SaveEditedSong()
@@ -2900,8 +2984,6 @@
     private class UserDataState
     {
         public List<int> Favorites { get; set; } = new();
-        public List<int> NewSetlist { get; set; } = new();
-        public List<int> OldSetlist { get; set; } = new();
     }
 
     private class SongFormModel

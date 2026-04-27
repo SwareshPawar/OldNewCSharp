@@ -490,6 +490,34 @@
         color: #1d4ed8;
     }
     .action-btn:active { transform: translateY(1px); }
+    .action-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .song-setlist-picker {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .song-setlist-select {
+        min-height: 34px;
+        min-width: 170px;
+        max-width: 240px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #f8fafc;
+        color: #1e293b;
+        padding: 0 10px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        outline: none;
+        cursor: pointer;
+    }
+    .song-setlist-select:focus {
+        border-color: #60a5fa;
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+    }
     .action-fav-on,
     .action-set-on,
     .action-scroll-on {
@@ -604,6 +632,15 @@
         background: #1e3a8a;
         border-color: #3b82f6;
         color: #bfdbfe;
+    }
+    .shell.theme-dark .song-setlist-select {
+        background: #1f2937;
+        border-color: #374151;
+        color: #e5e7eb;
+    }
+    .shell.theme-dark .song-setlist-select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
     }
     .shell.theme-dark .action-fav-on,
     .shell.theme-dark .action-set-on,
@@ -794,6 +831,10 @@
             flex-wrap: wrap;
             gap: 6px;
             flex: 1;
+        }
+        .song-setlist-select {
+            min-width: 150px;
+            max-width: 210px;
         }
         .p3-main { padding: 12px 14px 80px; }
         .p3-title { font-size: 1.4rem; }
