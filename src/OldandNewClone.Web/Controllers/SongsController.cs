@@ -47,8 +47,8 @@ public class SongsController : ControllerBase
     {
         if (id != updateSongDto.Id) return BadRequest();
         var result = await _songService.UpdateSongAsync(updateSongDto);
-        if (!result) return NotFound();
-        return Ok(new { message = "Song updated" });
+        if (result == null) return NotFound();
+        return Ok(result);
     }
 
     [HttpDelete("{id:int}")]

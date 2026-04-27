@@ -52,9 +52,21 @@ public class Song
     [BsonIgnoreIfNull]
     public string? Singer { get; set; }
 
+    [BsonElement("artistDetails")]
+    [BsonIgnoreIfNull]
+    public string? ArtistDetails { get; set; }
+
     [BsonElement("mood")]
     [BsonIgnoreIfNull]
     public string? Mood { get; set; }
+
+    [BsonElement("rhythmSetId")]
+    [BsonIgnoreIfNull]
+    public string? RhythmSetId { get; set; }
+
+    [BsonElement("rhythmCategory")]
+    [BsonIgnoreIfNull]
+    public string? RhythmCategory { get; set; }
 
     [BsonElement("tags")]
     [BsonIgnoreIfNull]

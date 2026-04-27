@@ -85,7 +85,7 @@ public class UserRepository : IUserRepository
             _logger.LogInformation("Found Node.js user in MongoDB for: {LoginInput}", loginInput);
 
             // Convert Node.js user to ApplicationUser
-            var userId = bsonUser.GetValue("_id", BsonNull.Value).ToString();
+            var userId = NormalizeBsonId(bsonUser.GetValue("_id", BsonNull.Value));
             var username = bsonUser.GetValue("username", BsonNull.Value).ToString();
             var email = bsonUser.GetValue("email", BsonNull.Value).ToString();
 
@@ -171,5 +171,192 @@ public class UserRepository : IUserRepository
     {
         var user = await _userManager.FindByNameAsync(username);
         return user != null;
+    }
+
+    public async Task<List<ApplicationUser>> GetAllAsync()
+    {
+        try
+        {
+            var collection = _database.GetCollection<BsonDocument>("Users");
+            var docs = await collection.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync();
+
+            var users = new List<ApplicationUser>();
+            foreach (var doc in docs)
+            {
+                var id = NormalizeBsonId(doc.GetValue("_id", BsonNull.Value));
+                var uname = doc.Contains("UserName") ? doc.GetValue("UserName", BsonNull.Value).ToString()
+                           : doc.GetValue("username", BsonNull.Value).ToString() ?? "";
+                var email = doc.Contains("Email") ? doc.GetValue("Email", BsonNull.Value).ToString()
+                           : doc.GetValue("email", BsonNull.Value).ToString() ?? "";
+                var firstName = doc.Contains("FirstName") ? doc.GetValue("FirstName", BsonNull.Value).ToString() ?? ""
+                               : doc.GetValue("firstName", BsonNull.Value).ToString() ?? "";
+                var lastName = doc.Contains("LastName") ? doc.GetValue("LastName", BsonNull.Value).ToString() ?? ""
+                              : doc.GetValue("lastName", BsonNull.Value).ToString() ?? "";
+                var isAdmin = doc.Contains("IsAdmin") ? doc.GetValue("IsAdmin", false).ToBoolean()
+                             : doc.Contains("isAdmin") && doc.GetValue("isAdmin", false).ToBoolean();
+                var phone = doc.Contains("Phone") ? doc.GetValue("Phone", BsonNull.Value).ToString() ?? ""
+                           : doc.GetValue("phone", BsonNull.Value).ToString() ?? "";
+
+                users.Add(new ApplicationUser
+                {
+                    Id = id,
+                    UserName = uname,
+                    Email = email,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Phone = phone,
+                    IsAdmin = isAdmin
+                });
+            }
+
+            return users.OrderByDescending(u => u.IsAdmin)
+                        .ThenBy(u => u.UserName)
+                        .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching all users");
+            return [];
+        }
+    }
+
+    public async Task<bool> SetAdminStatusAsync(string id, bool isAdmin)
+    {
+        try
+        {
+            var collection = _database.GetCollection<BsonDocument>("Users");
+            var filter = BuildIdFilter(id);
+
+            var update = Builders<BsonDocument>.Update
+                .Set("IsAdmin", isAdmin)
+                .Set("isAdmin", isAdmin); // keep both casing for Node.js compat
+
+            var result = await collection.UpdateOneAsync(filter, update);
+            return result.ModifiedCount > 0 || result.MatchedCount > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting admin status for user {Id}", id);
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateUserProfileAsync(string id, string username, string email, string firstName, string lastName, string phone)
+    {
+        try
+        {
+            var collection = _database.GetCollection<BsonDocument>("Users");
+            var filter = BuildIdFilter(id);
+
+            var update = Builders<BsonDocument>.Update
+                .Set("UserName", username)
+                .Set("username", username)
+                .Set("NormalizedUserName", username.ToUpperInvariant())
+                .Set("Email", email)
+                .Set("email", email)
+                .Set("NormalizedEmail", email.ToUpperInvariant())
+                .Set("FirstName", firstName)
+                .Set("firstName", firstName)
+                .Set("LastName", lastName)
+                .Set("lastName", lastName)
+                .Set("Phone", phone)
+                .Set("phone", phone)
+                .Set("Name", string.Join(" ", new[] { firstName, lastName }.Where(s => !string.IsNullOrWhiteSpace(s))));
+
+            var result = await collection.UpdateOneAsync(filter, update);
+            return result.ModifiedCount > 0 || result.MatchedCount > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating user profile for user {Id}", id);
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteUserAsync(string id)
+    {
+        try
+        {
+            var collection = _database.GetCollection<BsonDocument>("Users");
+            var normalizedId = NormalizeId(id);
+
+            // First try direct collection delete for both ObjectId and string _id forms.
+            var result = await collection.DeleteOneAsync(BuildIdFilter(id));
+            if (result.DeletedCount > 0)
+            {
+                return true;
+            }
+
+            // Fallback to Identity store delete for records resolved by UserManager.
+            var user = await _userManager.FindByIdAsync(normalizedId);
+            if (user == null && !string.Equals(normalizedId, id, StringComparison.Ordinal))
+            {
+                user = await _userManager.FindByIdAsync(id);
+            }
+
+            if (user != null)
+            {
+                var identityDelete = await _userManager.DeleteAsync(user);
+                if (identityDelete.Succeeded)
+                {
+                    return true;
+                }
+
+                var errors = string.Join(", ", identityDelete.Errors.Select(e => e.Description));
+                _logger.LogWarning("Identity delete failed for user {Id}: {Errors}", id, errors);
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting user {Id}", id);
+            return false;
+        }
+    }
+
+    private static FilterDefinition<BsonDocument> BuildIdFilter(string id)
+    {
+        var normalizedId = NormalizeId(id);
+
+        if (ObjectId.TryParse(normalizedId, out var objectId))
+        {
+            return Builders<BsonDocument>.Filter.Or(
+                Builders<BsonDocument>.Filter.Eq("_id", objectId),
+                Builders<BsonDocument>.Filter.Eq("_id", normalizedId),
+                Builders<BsonDocument>.Filter.Eq("_id", id));
+        }
+
+        return Builders<BsonDocument>.Filter.Or(
+            Builders<BsonDocument>.Filter.Eq("_id", normalizedId),
+            Builders<BsonDocument>.Filter.Eq("_id", id));
+    }
+
+    private static string NormalizeBsonId(BsonValue value)
+    {
+        if (value.BsonType == BsonType.ObjectId)
+        {
+            return value.AsObjectId.ToString();
+        }
+
+        return NormalizeId(value.ToString() ?? string.Empty);
+    }
+
+    private static string NormalizeId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return string.Empty;
+        }
+
+        const string objectIdPrefix = "ObjectId(\"";
+        const string objectIdSuffix = "\")";
+
+        if (id.StartsWith(objectIdPrefix, StringComparison.Ordinal) && id.EndsWith(objectIdSuffix, StringComparison.Ordinal))
+        {
+            return id.Substring(objectIdPrefix.Length, id.Length - objectIdPrefix.Length - objectIdSuffix.Length);
+        }
+
+        return id;
     }
 }

@@ -177,6 +177,9 @@ public class AuthService : IAuthService
             var role = roles.FirstOrDefault() ?? "User";
 
             // Generate tokens
+            // IsAdmin flag is authoritative (covers Node.js users not in Identity roles table)
+            if (user.IsAdmin) role = "Admin";
+
             var accessToken = _jwtTokenService.GenerateAccessToken(user.Id, user.Email!, role);
             var refreshToken = _jwtTokenService.GenerateRefreshToken();
 
@@ -240,6 +243,7 @@ public class AuthService : IAuthService
             var roles = await _userManager.GetRolesAsync(user);
             var role = roles.FirstOrDefault() ?? "User";
 
+            if (user.IsAdmin) role = "Admin";
             var accessToken = _jwtTokenService.GenerateAccessToken(user.Id, user.Email!, role);
             var newRefreshToken = _jwtTokenService.GenerateRefreshToken();
 

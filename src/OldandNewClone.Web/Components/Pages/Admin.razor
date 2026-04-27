@@ -1,0 +1,1461 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject OldandNewClone.Application.Services.UserStateService UserState
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using OldandNewClone.Application.Services
+@using System.ComponentModel.DataAnnotations
+@using System.Net.Http.Json
+@using System.Text.Json
+
+<PageTitle>Admin Panel</PageTitle>
+
+@if (IsCheckingAccess)
+{
+    <div class="admin-shell">
+        <div class="admin-status">Checking access...</div>
+    </div>
+}
+else if (IsForbidden)
+{
+    <div class="admin-shell">
+        <div class="admin-alert admin-alert-error">Admin access required.</div>
+    </div>
+}
+else
+{
+<div class="admin-shell">
+    <div class="admin-header">
+        <h1 class="admin-title">
+            <span class="bi bi-shield-lock-fill" aria-hidden="true"></span>
+            Admin Panel
+        </h1>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="admin-tabs" role="tablist">
+        <button class="admin-tab @(ActiveTab == "users" ? "active" : "")"
+                role="tab" aria-selected="@(ActiveTab == "users")"
+                @onclick='() => SetTab("users")'>
+            <span class="bi bi-people-fill" aria-hidden="true"></span> User Management
+        </button>
+        <button class="admin-tab @(ActiveTab == "weights" ? "active" : "")"
+                role="tab" aria-selected="@(ActiveTab == "weights")"
+                @onclick='() => SetTab("weights")'>
+            <span class="bi bi-sliders" aria-hidden="true"></span> Recommendation Weights
+        </button>
+        <button class="admin-tab @(ActiveTab == "rhythm" ? "active" : "")"
+                role="tab" aria-selected="@(ActiveTab == "rhythm")"
+                @onclick='() => SetTab("rhythm")'>
+            <span class="bi bi-music-note-beamed" aria-hidden="true"></span> Rhythm Sets
+        </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="admin-content">
+
+        @if (ActiveTab == "users")
+        {
+            <!-- User Management Tab -->
+            <div class="admin-section">
+                <div class="admin-section-header">
+                    <h2>Users</h2>
+                    <button class="btn-icon-action" @onclick="LoadUsers" title="Refresh">
+                        <span class="bi bi-arrow-clockwise" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                @if (UsersLoading)
+                {
+                    <div class="admin-status">Loading users...</div>
+                }
+                else if (UsersError != null)
+                {
+                    <div class="admin-alert admin-alert-error">@UsersError</div>
+                }
+                else if (Users.Count == 0)
+                {
+                    <div class="admin-status">No users found.</div>
+                }
+                else
+                {
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Role</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in Users)
+                                {
+                                    <tr>
+                                        <td class="user-name-cell">
+                                            @user.Username
+                                        </td>
+                                        <td class="user-email-cell">@user.Email</td>
+                                        <td>@string.Join(" ", new[] { user.FirstName, user.LastName }.Where(v => !string.IsNullOrWhiteSpace(v)))</td>
+                                        <td>@(string.IsNullOrWhiteSpace(user.Phone) ? "-" : user.Phone)</td>
+                                        <td>
+                                            @if (user.IsAdmin)
+                                            {
+                                                <span class="role-badge admin">Admin</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="role-badge user">User</span>
+                                            }
+                                        </td>
+                                        <td class="user-actions-cell">
+                                            <button class="btn-admin-action neutral"
+                                                    @onclick="() => OpenEditUser(user)"
+                                                    title="Edit user details">
+                                                <span class="bi bi-pencil-square" aria-hidden="true"></span> Edit
+                                            </button>
+
+                                            @if (!user.IsAdmin)
+                                            {
+                                                <button class="btn-admin-action promote"
+                                                        @onclick="() => MarkAdmin(user.Id)"
+                                                        title="Mark as Admin">
+                                                    <span class="bi bi-arrow-up-circle" aria-hidden="true"></span> Make Admin
+                                                </button>
+                                            }
+                                            else if (user.Id != UserState.UserId)
+                                            {
+                                                <button class="btn-admin-action demote"
+                                                        @onclick="() => PromptRemoveAdmin(user)"
+                                                        title="Make User">
+                                                    <span class="bi bi-person-dash" aria-hidden="true"></span> Make User
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <span class="self-badge">You</span>
+                                            }
+
+                                            <button class="btn-admin-action warn"
+                                                    @onclick="() => GenerateResetLink(user.Id)"
+                                                    title="Generate reset password link">
+                                                <span class="bi bi-key" aria-hidden="true"></span> Reset Link
+                                            </button>
+
+                                            @if (user.Id != UserState.UserId)
+                                            {
+                                                <button class="btn-admin-action danger"
+                                                        @onclick="() => PromptDeleteUser(user)"
+                                                        title="Delete user">
+                                                    <span class="bi bi-trash" aria-hidden="true"></span> Delete
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @if (UsersNotification != null)
+                {
+                    <div class="admin-alert @(UsersNotificationIsError ? "admin-alert-error" : "admin-alert-success")">
+                        @UsersNotification
+                    </div>
+                }
+            </div>
+        }
+
+        @if (ActiveTab == "weights")
+        {
+            <!-- Recommendation Weights Tab -->
+            <div class="admin-section">
+                <h2>Recommendation Weights</h2>
+                <p class="admin-section-desc">
+                    Control how song recommendations are scored. All weights must add up to 100.
+                </p>
+
+                @if (WeightsLoading)
+                {
+                    <div class="admin-status">Loading weights...</div>
+                }
+                else
+                {
+                    <EditForm Model="Weights" OnValidSubmit="SaveWeights">
+                        <div class="weights-grid">
+                            <div class="weight-row">
+                                <label>Language</label>
+                                <input type="number" min="0" max="100" @bind="Weights.Language" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Scale</label>
+                                <input type="number" min="0" max="100" @bind="Weights.Scale" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Time Signature</label>
+                                <input type="number" min="0" max="100" @bind="Weights.TimeSignature" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Taal</label>
+                                <input type="number" min="0" max="100" @bind="Weights.Taal" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Tempo</label>
+                                <input type="number" min="0" max="100" @bind="Weights.Tempo" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Genre</label>
+                                <input type="number" min="0" max="100" @bind="Weights.Genre" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Vocal</label>
+                                <input type="number" min="0" max="100" @bind="Weights.Vocal" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Mood</label>
+                                <input type="number" min="0" max="100" @bind="Weights.Mood" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                            <div class="weight-row">
+                                <label>Rhythm Category</label>
+                                <input type="number" min="0" max="100" @bind="Weights.RhythmCategory" @bind:after="RecalcTotal" class="weight-input" />
+                            </div>
+                        </div>
+
+                        <div class="weights-total @(WeightsTotal == 100 ? "ok" : "bad")">
+                            Total: @WeightsTotal / 100
+                            @if (WeightsTotal != 100)
+                            {
+                                <span class="total-hint"> — must equal 100</span>
+                            }
+                        </div>
+
+                        <div class="weights-actions">
+                            <button type="submit" class="btn-primary-action" disabled="@(WeightsTotal != 100 || WeightsSaving)">
+                                @if (WeightsSaving)
+                                {
+                                    <span>Saving...</span>
+                                }
+                                else
+                                {
+                                    <span><span class="bi bi-floppy-fill" aria-hidden="true"></span> Save Weights</span>
+                                }
+                            </button>
+                        </div>
+
+                        @if (WeightsNotification != null)
+                        {
+                            <div class="admin-alert @(WeightsNotificationIsError ? "admin-alert-error" : "admin-alert-success")">
+                                @WeightsNotification
+                            </div>
+                        }
+                    </EditForm>
+                }
+            </div>
+        }
+
+        @if (ActiveTab == "rhythm")
+        {
+            <!-- Rhythm Sets Tab (placeholder) -->
+            <div class="admin-section">
+                <h2>Rhythm Sets</h2>
+                <p class="admin-section-desc">
+                    Manage rhythm set definitions used by the loop player. Coming soon.
+                </p>
+                <div class="admin-placeholder">
+                    <span class="bi bi-music-note-beamed placeholder-icon" aria-hidden="true"></span>
+                    <p>Rhythm Sets management will be available in a future phase.</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+}
+
+<!-- Confirm Remove Admin Dialog -->
+@if (ConfirmRemoveAdminUser != null)
+{
+    <div class="modal-backdrop" @onclick="CancelRemoveAdmin">
+        <div class="modal-dialog" role="dialog" aria-modal="true"
+             aria-label="Confirm make user" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Make User</h3>
+                <button class="modal-close" @onclick="CancelRemoveAdmin" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <p>Change <strong>@ConfirmRemoveAdminUser.Username</strong> to user role?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-action" @onclick="CancelRemoveAdmin">Cancel</button>
+                <button class="btn-danger-action" @onclick="ConfirmRemoveAdmin">Make User</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (EditUserForm != null)
+{
+    <div class="modal-backdrop" @onclick="CancelEditUser">
+        <div class="modal-dialog" role="dialog" aria-modal="true"
+             aria-label="Edit user" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Edit User Details</h3>
+                <button class="modal-close" @onclick="CancelEditUser" aria-label="Close">&#x2715;</button>
+            </div>
+            <EditForm Model="EditUserForm" OnValidSubmit="SaveEditedUser">
+                <DataAnnotationsValidator />
+                <div class="modal-body modal-form-grid">
+                    <div class="modal-form-row">
+                        <label>Username</label>
+                        <InputText @bind-Value="EditUserForm.Username" class="modal-input" />
+                        <ValidationMessage For="@(() => EditUserForm.Username)" class="text-danger" />
+                    </div>
+                    <div class="modal-form-row">
+                        <label>Email</label>
+                        <InputText @bind-Value="EditUserForm.Email" class="modal-input" />
+                        <ValidationMessage For="@(() => EditUserForm.Email)" class="text-danger" />
+                    </div>
+                    <div class="modal-form-row">
+                        <label>First Name</label>
+                        <InputText @bind-Value="EditUserForm.FirstName" class="modal-input" />
+                        <ValidationMessage For="@(() => EditUserForm.FirstName)" class="text-danger" />
+                    </div>
+                    <div class="modal-form-row">
+                        <label>Last Name</label>
+                        <InputText @bind-Value="EditUserForm.LastName" class="modal-input" />
+                        <ValidationMessage For="@(() => EditUserForm.LastName)" class="text-danger" />
+                    </div>
+                    <div class="modal-form-row">
+                        <label>Phone</label>
+                        <InputText @bind-Value="EditUserForm.Phone" class="modal-input" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary-action" @onclick="CancelEditUser">Cancel</button>
+                    <button type="submit" class="btn-primary-action" disabled="@EditUserSaving">Save</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@if (ConfirmDeleteUser != null)
+{
+    <div class="modal-backdrop" @onclick="CancelDeleteUser">
+        <div class="modal-dialog" role="dialog" aria-modal="true"
+             aria-label="Confirm delete user" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Delete User</h3>
+                <button class="modal-close" @onclick="CancelDeleteUser" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <p>Delete user <strong>@ConfirmDeleteUser.Username</strong>? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-action" @onclick="CancelDeleteUser" disabled="@DeleteUserSaving">Cancel</button>
+                <button class="btn-danger-action" @onclick="DeleteUser" disabled="@DeleteUserSaving">
+                    @if (DeleteUserSaving)
+                    {
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span>Delete</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ResetLinkDialog != null)
+{
+    <div class="modal-backdrop" @onclick="CloseResetLinkDialog">
+        <div class="modal-dialog modal-dialog-wide" role="dialog" aria-modal="true"
+             aria-label="Reset password link" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Password Reset Link</h3>
+                <button class="modal-close" @onclick="CloseResetLinkDialog" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <p>Share this link with the user to reset their password:</p>
+                <textarea class="modal-textarea" readonly>@ResetLinkDialog</textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary-action" @onclick="CloseResetLinkDialog">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const string AuthStorageKey = "oldnew.auth";
+    private string ActiveTab = "users";
+    private bool IsCheckingAccess = true;
+    private bool IsForbidden;
+    private bool HasInitializedAdmin;
+
+    // ── Users Tab ──────────────────────────────────────────────
+    private List<UserRow> Users = [];
+    private bool UsersLoading = false;
+    private string? UsersError;
+    private string? UsersNotification;
+    private bool UsersNotificationIsError = false;
+    private UserRow? ConfirmRemoveAdminUser;
+    private UserRow? ConfirmDeleteUser;
+    private bool DeleteUserSaving;
+    private EditUserModel? EditUserForm;
+    private bool EditUserSaving;
+    private string? ResetLinkDialog;
+
+    // ── Weights Tab ────────────────────────────────────────────
+    private WeightsModel Weights = new();
+    private int WeightsTotal = 100;
+    private bool WeightsLoading = false;
+    private bool WeightsSaving = false;
+    private string? WeightsNotification;
+    private bool WeightsNotificationIsError = false;
+
+    protected override Task OnInitializedAsync()
+    {
+        IsCheckingAccess = true;
+        IsForbidden = false;
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || HasInitializedAdmin)
+        {
+            return;
+        }
+
+        HasInitializedAdmin = true;
+
+        await TryRestoreAuthStateAsync();
+
+        // This app currently tracks login in UserStateService instead of Blazor auth state.
+        // Gate admin access with UserState after JS-backed auth restore has had a chance to run.
+        if (!UserState.IsLoggedIn || !UserState.IsAdmin)
+        {
+            IsForbidden = true;
+            IsCheckingAccess = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        IsForbidden = false;
+        IsCheckingAccess = false;
+        await LoadUsers();
+        await LoadWeights();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SetTab(string tab)
+    {
+        ActiveTab = tab;
+    }
+
+    // ── Users ──────────────────────────────────────────────────
+    private async Task LoadUsers()
+    {
+        UsersLoading = true;
+        UsersError = null;
+        StateHasChanged();
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/users");
+            if (!string.IsNullOrEmpty(UserState.AccessToken))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UserState.AccessToken);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                Users = await response.Content.ReadFromJsonAsync<List<UserRow>>() ?? [];
+            }
+            else
+            {
+                var detail = await ReadErrorMessageAsync(response);
+                UsersError = $"Failed to load users (HTTP {(int)response.StatusCode}): {detail}";
+            }
+        }
+        catch (Exception ex)
+        {
+            UsersError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            UsersLoading = false;
+        }
+    }
+
+    private async Task MarkAdmin(string id)
+    {
+        await SendAdminAction($"/api/users/{id}/admin", HttpMethod.Patch, "User marked as admin");
+    }
+
+    private void PromptRemoveAdmin(UserRow user)
+    {
+        ConfirmRemoveAdminUser = user;
+    }
+
+    private void CancelRemoveAdmin()
+    {
+        ConfirmRemoveAdminUser = null;
+    }
+
+    private async Task ConfirmRemoveAdmin()
+    {
+        if (ConfirmRemoveAdminUser == null) return;
+        var id = ConfirmRemoveAdminUser.Id;
+        ConfirmRemoveAdminUser = null;
+        await SendAdminAction($"/api/users/{id}/remove-admin", HttpMethod.Patch, "User role updated");
+    }
+
+    private void OpenEditUser(UserRow user)
+    {
+        EditUserForm = new EditUserModel
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Phone = user.Phone
+        };
+    }
+
+    private void CancelEditUser()
+    {
+        EditUserForm = null;
+    }
+
+    private async Task SaveEditedUser()
+    {
+        if (EditUserForm == null) return;
+
+        EditUserSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, $"/api/users/{EditUserForm.Id}/profile");
+            if (!string.IsNullOrEmpty(UserState.AccessToken))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UserState.AccessToken);
+
+            request.Content = JsonContent.Create(new
+            {
+                username = EditUserForm.Username,
+                email = EditUserForm.Email,
+                firstName = EditUserForm.FirstName,
+                lastName = EditUserForm.LastName,
+                phone = EditUserForm.Phone
+            });
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                EditUserForm = null;
+                ShowUsersNotification("User details updated", false);
+                await LoadUsers();
+            }
+            else
+            {
+                ShowUsersNotification(await ReadErrorMessageAsync(response), true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowUsersNotification($"Network error: {ex.Message}", true);
+        }
+        finally
+        {
+            EditUserSaving = false;
+        }
+    }
+
+    private void PromptDeleteUser(UserRow user)
+    {
+        ConfirmDeleteUser = user;
+    }
+
+    private void CancelDeleteUser()
+    {
+        if (DeleteUserSaving) return;
+        ConfirmDeleteUser = null;
+    }
+
+    private async Task DeleteUser()
+    {
+        if (ConfirmDeleteUser == null) return;
+
+        var id = ConfirmDeleteUser.Id;
+        DeleteUserSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            var success = await SendAdminAction($"/api/users/{id}", HttpMethod.Delete, "User deleted");
+            if (success)
+            {
+                ConfirmDeleteUser = null;
+            }
+        }
+        finally
+        {
+            DeleteUserSaving = false;
+        }
+    }
+
+    private async Task GenerateResetLink(string userId)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"/api/users/{userId}/reset-password-link");
+            if (!string.IsNullOrEmpty(UserState.AccessToken))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UserState.AccessToken);
+
+            var response = await Http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                ShowUsersNotification(await ReadErrorMessageAsync(response), true);
+                return;
+            }
+
+            var data = await response.Content.ReadFromJsonAsync<ResetLinkResponse>();
+            if (data?.ResetLink == null)
+            {
+                ShowUsersNotification("Failed to generate reset link", true);
+                return;
+            }
+
+            ResetLinkDialog = data.ResetLink;
+        }
+        catch (Exception ex)
+        {
+            ShowUsersNotification($"Network error: {ex.Message}", true);
+        }
+    }
+
+    private void CloseResetLinkDialog()
+    {
+        ResetLinkDialog = null;
+    }
+
+    private async Task<bool> SendAdminAction(string url, HttpMethod method, string successMsg)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(method, url);
+            if (!string.IsNullOrEmpty(UserState.AccessToken))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UserState.AccessToken);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                ShowUsersNotification(successMsg, false);
+                await LoadUsers();
+                return true;
+            }
+            else
+            {
+                ShowUsersNotification(await ReadErrorMessageAsync(response), true);
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowUsersNotification($"Network error: {ex.Message}", true);
+            return false;
+        }
+    }
+
+    private void ShowUsersNotification(string msg, bool isError)
+    {
+        UsersNotification = msg;
+        UsersNotificationIsError = isError;
+        StateHasChanged();
+        _ = Task.Delay(3000).ContinueWith(_ =>
+        {
+            UsersNotification = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task TryRestoreAuthStateAsync()
+    {
+        if (UserState.IsLoggedIn && !string.IsNullOrWhiteSpace(UserState.AccessToken))
+        {
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UserState.AccessToken);
+            return;
+        }
+
+        try
+        {
+            var keyJson = JsonSerializer.Serialize(AuthStorageKey);
+            var payload = await JS.InvokeAsync<string?>("eval", $"localStorage.getItem({keyJson})");
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                return;
+            }
+
+            var data = JsonSerializer.Deserialize<PersistedAuth>(payload, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (data?.User == null || string.IsNullOrWhiteSpace(data.AccessToken) || !data.User.IsAdmin)
+            {
+                return;
+            }
+
+            UserState.SetUser(
+                data.User.Id,
+                data.User.Username,
+                data.User.Email,
+                data.User.FirstName,
+                data.User.LastName,
+                data.User.IsAdmin,
+                data.AccessToken);
+
+            Http.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", data.AccessToken);
+        }
+        catch
+        {
+            // Keep current state if storage cannot be read.
+        }
+    }
+
+    private static async Task<string> ReadErrorMessageAsync(HttpResponseMessage response)
+    {
+        var fallback = $"Action failed (HTTP {(int)response.StatusCode})";
+
+        try
+        {
+            var err = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+            if (!string.IsNullOrWhiteSpace(err?.Error)) return err.Error!;
+            if (!string.IsNullOrWhiteSpace(err?.Message)) return err.Message!;
+        }
+        catch
+        {
+            // Continue to plain-text fallback parsing.
+        }
+
+        var text = await response.Content.ReadAsStringAsync();
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            var compact = text.Length > 220 ? text[..220] + "..." : text;
+            return compact;
+        }
+
+        return fallback;
+    }
+
+    // ── Weights ────────────────────────────────────────────────
+    private async Task LoadWeights()
+    {
+        WeightsLoading = true;
+        StateHasChanged();
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/recommendation-weights");
+            if (!string.IsNullOrEmpty(UserState.AccessToken))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UserState.AccessToken);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var data = await response.Content.ReadFromJsonAsync<WeightsModel>();
+                if (data != null) Weights = data;
+            }
+        }
+        catch { /* keep defaults */ }
+        finally
+        {
+            WeightsLoading = false;
+            RecalcTotal().GetAwaiter().GetResult();
+        }
+    }
+
+    private Task RecalcTotal()
+    {
+        WeightsTotal = Weights.Language + Weights.Scale + Weights.TimeSignature
+                     + Weights.Taal + Weights.Tempo + Weights.Genre
+                     + Weights.Vocal + Weights.Mood + Weights.RhythmCategory;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveWeights()
+    {
+        if (WeightsTotal != 100) return;
+        WeightsSaving = true;
+        WeightsNotification = null;
+        StateHasChanged();
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, "/api/recommendation-weights");
+            if (!string.IsNullOrEmpty(UserState.AccessToken))
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UserState.AccessToken);
+
+            request.Content = JsonContent.Create(new
+            {
+                language = Weights.Language,
+                scale = Weights.Scale,
+                timeSignature = Weights.TimeSignature,
+                taal = Weights.Taal,
+                tempo = Weights.Tempo,
+                genre = Weights.Genre,
+                vocal = Weights.Vocal,
+                mood = Weights.Mood,
+                rhythmCategory = Weights.RhythmCategory,
+                expectedLastModified = Weights.LastModified
+            });
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var saved = await response.Content.ReadFromJsonAsync<SaveWeightsResponse>();
+                if (saved?.LastModified != null)
+                {
+                    Weights.LastModified = saved.LastModified;
+                }
+                ShowWeightsNotification("Weights saved successfully!", false);
+            }
+            else
+            {
+                var err = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                ShowWeightsNotification(err?.Error ?? err?.Message ?? "Save failed", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowWeightsNotification($"Network error: {ex.Message}", true);
+        }
+        finally
+        {
+            WeightsSaving = false;
+        }
+    }
+
+    private void ShowWeightsNotification(string msg, bool isError)
+    {
+        WeightsNotification = msg;
+        WeightsNotificationIsError = isError;
+        StateHasChanged();
+        _ = Task.Delay(4000).ContinueWith(_ =>
+        {
+            WeightsNotification = null;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    // ── Models ─────────────────────────────────────────────────
+    private class UserRow
+    {
+        public string Id { get; set; } = "";
+        public string Username { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public bool IsAdmin { get; set; }
+    }
+
+    private class PersistedAuth
+    {
+        public string? AccessToken { get; set; }
+        public UserRow? User { get; set; }
+    }
+
+    private class EditUserModel
+    {
+        public string Id { get; set; } = "";
+
+        [Required]
+        [StringLength(64)]
+        public string Username { get; set; } = "";
+
+        [Required]
+        [EmailAddress]
+        [StringLength(254)]
+        public string Email { get; set; } = "";
+
+        [Required]
+        public string FirstName { get; set; } = "";
+
+        [Required]
+        public string LastName { get; set; } = "";
+
+        public string Phone { get; set; } = "";
+    }
+
+    private class WeightsModel
+    {
+        public int Language { get; set; } = 15;
+        public int Scale { get; set; } = 10;
+        public int TimeSignature { get; set; } = 10;
+        public int Taal { get; set; } = 15;
+        public int Tempo { get; set; } = 10;
+        public int Genre { get; set; } = 15;
+        public int Vocal { get; set; } = 10;
+        public int Mood { get; set; } = 10;
+        public int RhythmCategory { get; set; } = 5;
+        public DateTime? LastModified { get; set; }
+    }
+
+    private record ErrorResponse(string? Error, string? Message);
+    private record ResetLinkResponse(string? Message, string? ResetLink, string? ExpiresHint);
+    private record SaveWeightsResponse(string? Message, DateTime? LastModified);
+}
+
+<style>
+    .admin-shell {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px 16px;
+        font-family: inherit;
+    }
+
+    .admin-header {
+        margin-bottom: 20px;
+    }
+
+    .admin-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary, #1a1a2e);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Tab bar */
+    .admin-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--border-color, #e5e7eb);
+        margin-bottom: 24px;
+        overflow-x: auto;
+    }
+
+    .admin-tab {
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        padding: 10px 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-secondary, #6b7280);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        transition: color 0.15s, border-color 0.15s;
+    }
+
+    .admin-tab:hover {
+        color: var(--accent, #6c63ff);
+    }
+
+    .admin-tab.active {
+        color: var(--accent, #6c63ff);
+        border-bottom-color: var(--accent, #6c63ff);
+    }
+
+    /* Section */
+    .admin-section {
+        background: var(--surface, #fff);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 10px;
+        padding: 20px 24px;
+    }
+
+    .admin-section h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0 0 4px;
+        color: var(--text-primary, #1a1a2e);
+    }
+
+    .admin-section-desc {
+        font-size: 0.85rem;
+        color: var(--text-secondary, #6b7280);
+        margin: 0 0 18px;
+    }
+
+    .admin-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+
+    .admin-section-header h2 {
+        margin: 0;
+    }
+
+    /* Status */
+    .admin-status {
+        font-size: 0.9rem;
+        color: var(--text-secondary, #6b7280);
+        padding: 12px 0;
+    }
+
+    /* Alerts */
+    .admin-alert {
+        margin-top: 14px;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .admin-alert-success {
+        background: #d1fae5;
+        color: #065f46;
+        border: 1px solid #6ee7b7;
+    }
+
+    .admin-alert-error {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+    }
+
+    /* Table */
+    .admin-table-wrap {
+        overflow-x: auto;
+    }
+
+    .admin-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .admin-table th {
+        text-align: left;
+        padding: 8px 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary, #6b7280);
+        border-bottom: 2px solid var(--border-color, #e5e7eb);
+    }
+
+    .admin-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-color, #f3f4f6);
+        color: var(--text-primary, #1a1a2e);
+        vertical-align: middle;
+    }
+
+    .admin-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .admin-table tr:hover td {
+        background: var(--hover-bg, #f9fafb);
+    }
+
+    .user-name-cell {
+        font-weight: 600;
+        max-width: 200px;
+        overflow-wrap: break-word;
+    }
+
+    .user-email-cell {
+        color: var(--text-secondary, #6b7280);
+        font-size: 0.825rem;
+    }
+
+    /* Badges */
+    .role-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+    }
+
+    .role-badge.admin {
+        background: #ddd6fe;
+        color: #5b21b6;
+    }
+
+    .role-badge.user {
+        background: #e5e7eb;
+        color: #374151;
+    }
+
+    .self-badge {
+        font-size: 0.75rem;
+        color: var(--text-secondary, #9ca3af);
+        font-style: italic;
+    }
+
+    /* Action buttons */
+    .user-actions-cell {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .btn-admin-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-admin-action.promote {
+        background: #ddd6fe;
+        color: #5b21b6;
+    }
+
+    .btn-admin-action.promote:hover {
+        background: #c4b5fd;
+    }
+
+    .btn-admin-action.demote {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .btn-admin-action.demote:hover {
+        background: #fecaca;
+    }
+
+    .btn-admin-action.neutral {
+        background: #e0f2fe;
+        color: #0c4a6e;
+    }
+
+    .btn-admin-action.neutral:hover {
+        background: #bae6fd;
+    }
+
+    .btn-admin-action.warn {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .btn-admin-action.warn:hover {
+        background: #fde68a;
+    }
+
+    .btn-admin-action.danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .btn-admin-action.danger:hover {
+        background: #fecaca;
+    }
+
+    .btn-icon-action {
+        background: none;
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 6px;
+        padding: 5px 9px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        color: var(--text-secondary, #6b7280);
+        transition: background 0.15s;
+    }
+
+    .btn-icon-action:hover {
+        background: var(--hover-bg, #f3f4f6);
+    }
+
+    /* Weights */
+    .weights-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .weight-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .weight-row label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary, #6b7280);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .weight-input {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid var(--border-color, #d1d5db);
+        border-radius: 6px;
+        font-size: 0.9rem;
+        background: var(--input-bg, #f9fafb);
+        color: var(--text-primary, #1a1a2e);
+        transition: border-color 0.15s;
+    }
+
+    .weight-input:focus {
+        outline: none;
+        border-color: var(--accent, #6c63ff);
+        background: var(--surface, #fff);
+    }
+
+    .weights-total {
+        font-size: 1rem;
+        font-weight: 700;
+        padding: 8px 0;
+        margin-bottom: 14px;
+    }
+
+    .weights-total.ok {
+        color: #065f46;
+    }
+
+    .weights-total.bad {
+        color: #991b1b;
+    }
+
+    .total-hint {
+        font-weight: 400;
+        font-size: 0.85rem;
+    }
+
+    .weights-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-primary-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 20px;
+        background: var(--accent, #6c63ff);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, opacity 0.15s;
+    }
+
+    .btn-primary-action:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .btn-primary-action:not(:disabled):hover {
+        background: #5a52d5;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-dialog {
+        background: var(--surface, #fff);
+        border-radius: 12px;
+        padding: 0;
+        width: min(420px, 90vw);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        overflow: hidden;
+        pointer-events: auto;
+    }
+
+    .modal-dialog-wide {
+        width: min(680px, 92vw);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary, #1a1a2e);
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.1rem;
+        cursor: pointer;
+        color: var(--text-secondary, #6b7280);
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+
+    .modal-close:hover {
+        background: var(--hover-bg, #f3f4f6);
+    }
+
+    .modal-body {
+        padding: 20px;
+        font-size: 0.9rem;
+        color: var(--text-primary, #1a1a2e);
+    }
+
+    .modal-form-grid {
+        display: grid;
+        gap: 10px;
+    }
+
+    .modal-form-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .modal-form-row label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary, #6b7280);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .modal-input {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid var(--border-color, #d1d5db);
+        border-radius: 6px;
+        font-size: 0.9rem;
+        background: var(--input-bg, #f9fafb);
+        color: var(--text-primary, #1a1a2e);
+    }
+
+    .modal-textarea {
+        width: 100%;
+        min-height: 120px;
+        border: 1px solid var(--border-color, #d1d5db);
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.82rem;
+        background: var(--input-bg, #f9fafb);
+        color: var(--text-primary, #1a1a2e);
+        resize: vertical;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 14px 20px;
+        border-top: 1px solid var(--border-color, #e5e7eb);
+    }
+
+    .btn-secondary-action {
+        padding: 7px 16px;
+        background: var(--hover-bg, #f3f4f6);
+        color: var(--text-primary, #374151);
+        border: 1px solid var(--border-color, #d1d5db);
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-secondary-action:hover {
+        background: var(--border-color, #e5e7eb);
+    }
+
+    .btn-danger-action {
+        padding: 7px 16px;
+        background: #dc2626;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .btn-danger-action:hover {
+        background: #b91c1c;
+    }
+
+    /* Placeholder */
+    .admin-placeholder {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-secondary, #9ca3af);
+    }
+
+    .placeholder-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 12px;
+        opacity: 0.4;
+    }
+
+    /* Dark mode */
+    @@media (prefers-color-scheme: dark) {
+        .admin-title { color: #e2e8f0; }
+        .admin-tabs { border-bottom-color: #334155; }
+        .admin-tab { color: #94a3b8; }
+        .admin-tab.active { color: #a78bfa; border-bottom-color: #a78bfa; }
+        .admin-section { background: #1e293b; border-color: #334155; }
+        .admin-section h2 { color: #e2e8f0; }
+        .admin-table th { color: #94a3b8; border-bottom-color: #334155; }
+        .admin-table td { color: #e2e8f0; border-bottom-color: #1e293b; }
+        .admin-table tr:hover td { background: #273344; }
+        .weight-input { background: #273344; border-color: #334155; color: #e2e8f0; }
+        .weight-input:focus { background: #1e293b; border-color: #a78bfa; }
+        .btn-icon-action { border-color: #334155; color: #94a3b8; }
+        .btn-icon-action:hover { background: #273344; }
+        .modal-dialog { background: #1e293b; }
+        .modal-header { border-bottom-color: #334155; }
+        .modal-header h3 { color: #e2e8f0; }
+        .modal-footer { border-top-color: #334155; }
+        .modal-body { color: #e2e8f0; }
+        .modal-input { background: #273344; border-color: #334155; color: #e2e8f0; }
+        .modal-textarea { background: #273344; border-color: #334155; color: #e2e8f0; }
+        .btn-secondary-action { background: #273344; color: #e2e8f0; border-color: #334155; }
+        .btn-secondary-action:hover { background: #334155; }
+        .admin-alert-success { background: #064e3b; color: #6ee7b7; border-color: #065f46; }
+        .admin-alert-error { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+        .role-badge.admin { background: #4c1d95; color: #ddd6fe; }
+        .role-badge.user { background: #374151; color: #d1d5db; }
+        .btn-admin-action.neutral { background: #0c4a6e; color: #bae6fd; }
+        .btn-admin-action.warn { background: #78350f; color: #fde68a; }
+        .btn-admin-action.danger { background: #7f1d1d; color: #fecaca; }
+    }
+</style>

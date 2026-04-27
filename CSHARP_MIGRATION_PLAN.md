@@ -234,9 +234,8 @@ Result: Both Node.js and .NET users can login without data changes
 
 ---
 
-### 🔄 Phase 10: Workspace Persistence
-**Status**: In Progress
-**Timeline**: Next
+### ✅ Phase 10: Workspace Persistence
+**Status**: Completed
 
 **Completed Deliverables**:
 - ✅ Persist theme mode
@@ -245,9 +244,7 @@ Result: Both Node.js and .NET users can login without data changes
 - ✅ Persist selected section in Panel 1
 - ✅ Persist selected song in Panel 2
 - ✅ Persist active panel state across reloads
-
-**Next Deliverables**:
-- ⏳ Persist Panel 3 reading position if useful
+- ✅ Persist Panel 3 reading position (scroll position per song, restored on re-select)
 
 ---
 
@@ -262,9 +259,10 @@ Result: Both Node.js and .NET users can login without data changes
 - ✅ Improve dark-mode lyrics readability in Panel 3
 - ✅ Simplify transpose indicator display to signed numeric format only
 - ✅ Focus handling for modals
+- ✅ Quick new setlist actions on Panel 1 section headers for Global/My
+- ✅ Smart setlists kept read-only in Panel 1 with sync action exposed
 
 **Current Step (In Progress)**:
-- 🔄 Add quick “new setlist” actions on Panel 1 setlist section headers (Global/My), while keeping Smart setlists read-only
 - 🔄 Keyboard shortcuts
 - 🔄 Better mobile transitions
 - 🔄 Unified error/loading visuals
@@ -287,14 +285,36 @@ Result: Both Node.js and .NET users can login without data changes
 
 ---
 
-### 🔄 Phase 13: Data and Security Hardening
-**Status**: Planned
+### ✅ Phase 13: Data and Security Hardening (COMPLETED)
+**Status**: Done
 
-**Next Deliverables**:
-- ⏳ Authorization review for edit/delete flows
-- ⏳ Validation review for add/edit payloads
-- ⏳ Error handling improvements
-- ⏳ Concurrency / safe write review
+**Deliverables**:
+- ✅ Authorization hardening for admin edit/delete/promote/demote flows
+- ✅ Validation hardening for user profile, reset-password, and weights payloads
+- ✅ Error handling improvements with structured 4xx/5xx responses + server logging
+- ✅ Concurrency / safe write review
+  - serialized admin mutations to reduce last-admin race conditions
+  - optimistic concurrency for recommendation weights save (`expectedLastModified` token)
+
+---
+
+### ✅ Phase 16: Admin Panel (COMPLETED)
+**Status**: Done
+
+**Deliverables**:
+- ✅ `GET /api/users` — admin-only user list endpoint (Node.js + .NET users via direct MongoDB)
+- ✅ `PATCH /api/users/{id}/admin` — mark user as admin
+- ✅ `PATCH /api/users/{id}/remove-admin` — remove admin role (cannot self-demote)
+- ✅ `GET /api/recommendation-weights` — fetch singleton weights document
+- ✅ `PUT /api/recommendation-weights` — save weights (admin only, total=100 validation)
+- ✅ `RecommendationWeights` domain entity (`recommendationWeights` collection)
+- ✅ `IRecommendationWeightsRepository` + `RecommendationWeightsRepository`
+- ✅ `IUserRepository.GetAllAsync()` + `SetAdminStatusAsync()` — hybrid MongoDB scan
+- ✅ `Admin.razor` — role-gated page at `/admin`, 3 tabs:
+  - User Management: table sorted admins-first, Mark/Remove Admin with confirmation modal
+  - Recommendation Weights: 9 weight fields, live total bar (must = 100), save to MongoDB
+  - Rhythm Sets: placeholder for future phase
+- ✅ Admin nav link in `NavMenu.razor` (visible to admin users only)
 
 ---
 

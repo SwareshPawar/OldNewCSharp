@@ -37,9 +37,12 @@ public class SongService : ISongService
             Taal = dto.Taal,
             Genres = dto.Genres,
             Lyrics = dto.Lyrics,
-            Singer = dto.Singer,
+            Singer = dto.Singer ?? dto.ArtistDetails,
+            ArtistDetails = dto.ArtistDetails ?? dto.Singer,
             Mood = dto.Mood,
             Tags = dto.Tags,
+            RhythmSetId = dto.RhythmSetId,
+            RhythmCategory = dto.RhythmCategory,
             YoutubeLink = dto.YoutubeLink,
             SpotifyLink = dto.SpotifyLink,
             Notes = dto.Notes,
@@ -50,10 +53,10 @@ public class SongService : ISongService
         return MapToDto(created);
     }
 
-    public async Task<bool> UpdateSongAsync(UpdateSongDto dto)
+    public async Task<SongDto?> UpdateSongAsync(UpdateSongDto dto)
     {
         var existing = await _songRepository.GetByIdAsync(dto.Id);
-        if (existing == null) return false;
+        if (existing == null) return null;
 
         existing.Title = dto.Title;
         existing.Category = dto.Category;
@@ -63,15 +66,19 @@ public class SongService : ISongService
         existing.Taal = dto.Taal;
         existing.Genres = dto.Genres;
         existing.Lyrics = dto.Lyrics;
-        existing.Singer = dto.Singer;
+        existing.Singer = dto.Singer ?? dto.ArtistDetails;
+        existing.ArtistDetails = dto.ArtistDetails ?? dto.Singer;
         existing.Mood = dto.Mood;
         existing.Tags = dto.Tags;
+        existing.RhythmSetId = dto.RhythmSetId;
+        existing.RhythmCategory = dto.RhythmCategory;
         existing.YoutubeLink = dto.YoutubeLink;
         existing.SpotifyLink = dto.SpotifyLink;
         existing.Notes = dto.Notes;
         existing.IsPublic = dto.IsPublic;
 
-        return await _songRepository.UpdateAsync(existing);
+        var updated = await _songRepository.UpdateAsync(existing);
+        return updated ? MapToDto(existing) : null;
     }
 
     public async Task<bool> DeleteSongAsync(int songId)
@@ -104,12 +111,12 @@ public class SongService : ISongService
     }
 
     private static SongListItemDto MapToListItem(Song s) => new(
-        s.SongId, s.Title, s.Category, s.Key, s.Genres, s.Singer, s.Mood, s.Tempo, s.Time, s.Taal, s.Tags);
+        s.SongId, s.Title, s.Category, s.Key, s.Genres, s.Singer, s.ArtistDetails, s.Mood, s.Tempo, s.Time, s.Taal, s.Tags);
 
     private static SongDto MapToDto(Song s) => new(
         s.SongId, s.Title, s.Category, s.Key,
         s.Tempo, s.Time, s.Taal, s.Genres, s.Lyrics,
-        s.Singer, s.Mood, s.Tags, s.YoutubeLink,
+        s.Singer, s.ArtistDetails, s.Mood, s.Tags, s.RhythmSetId, s.RhythmCategory, s.YoutubeLink,
         s.SpotifyLink, s.Notes, s.IsPublic, s.ViewCount,
         s.CreatedAt, s.UpdatedAt);
 }

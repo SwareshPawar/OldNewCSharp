@@ -25,7 +25,7 @@ public class UserStateService
     public void SetUser(string userId, string username, string email,
         string firstName, string lastName, bool isAdmin, string accessToken)
     {
-        UserId = userId;
+        UserId = NormalizeUserId(userId);
         Username = username;
         Email = email;
         FirstName = firstName;
@@ -45,5 +45,23 @@ public class UserStateService
         IsAdmin = false;
         AccessToken = null;
         OnChange?.Invoke();
+    }
+
+    private static string NormalizeUserId(string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return string.Empty;
+        }
+
+        const string objectIdPrefix = "ObjectId(\"";
+        const string objectIdSuffix = "\")";
+
+        if (userId.StartsWith(objectIdPrefix, StringComparison.Ordinal) && userId.EndsWith(objectIdSuffix, StringComparison.Ordinal))
+        {
+            return userId.Substring(objectIdPrefix.Length, userId.Length - objectIdPrefix.Length - objectIdSuffix.Length);
+        }
+
+        return userId;
     }
 }

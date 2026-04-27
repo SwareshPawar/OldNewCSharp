@@ -71,6 +71,7 @@ public static class DependencyInjection
         services.AddScoped<IUserDataRepository, UserDataRepository>();
         services.AddScoped<ISetlistRepository, SetlistRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRecommendationWeightsRepository, RecommendationWeightsRepository>();
 
         return services;
     }

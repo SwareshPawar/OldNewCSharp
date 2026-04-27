@@ -52,6 +52,14 @@
                     }
                 </div>
             </div>
+            @if (UserState.IsAdmin)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin">
+                        <span class="bi bi-shield-lock-fill" aria-hidden="true"></span> Admin Panel
+                    </NavLink>
+                </div>
+            }
             <div class="nav-item px-3">
                 <button class="nav-link btn-logout" @onclick="Logout">
                     <span class="bi bi-box-arrow-left" aria-hidden="true"></span> Logout
@@ -147,14 +155,32 @@
 </style>
 
 @using OldandNewClone.Application.Services
+@implements IDisposable
 @inject UserStateService UserState
 @inject NavigationManager Navigation
 @inject HttpClient Http
+@inject IJSRuntime JS
 
 @code {
-    private void Logout()
+    protected override void OnInitialized()
+    {
+        UserState.OnChange += OnUserStateChanged;
+    }
+
+    private void OnUserStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        UserState.OnChange -= OnUserStateChanged;
+    }
+
+    private async Task Logout()
     {
         Http.DefaultRequestHeaders.Authorization = null;
+        await JS.InvokeVoidAsync("eval", "localStorage.removeItem('oldnew.auth')");
         UserState.Logout();
         Navigation.NavigateTo("/auth/login");
     }

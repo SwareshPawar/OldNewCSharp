@@ -20,9 +20,11 @@ public class JwtTokenService : IJwtTokenService
 
     public string GenerateAccessToken(string userId, string email, string role)
     {
+        var normalizedUserId = NormalizeUserId(userId);
+
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.NameIdentifier, normalizedUserId),
             new Claim(ClaimTypes.Email, email),
             new Claim(ClaimTypes.Role, role),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
@@ -84,11 +86,29 @@ public class JwtTokenService : IJwtTokenService
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var jwtToken = tokenHandler.ReadJwtToken(token);
-            return jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
+            return NormalizeUserId(jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value);
         }
         catch
         {
             return null;
         }
+    }
+
+    private static string NormalizeUserId(string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return string.Empty;
+        }
+
+        const string objectIdPrefix = "ObjectId(\"";
+        const string objectIdSuffix = "\")";
+
+        if (userId.StartsWith(objectIdPrefix, StringComparison.Ordinal) && userId.EndsWith(objectIdSuffix, StringComparison.Ordinal))
+        {
+            return userId.Substring(objectIdPrefix.Length, userId.Length - objectIdPrefix.Length - objectIdSuffix.Length);
+        }
+
+        return userId;
     }
 }

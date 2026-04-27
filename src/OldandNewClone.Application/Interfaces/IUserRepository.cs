@@ -13,4 +13,8 @@ public interface IUserRepository
     Task<bool> UpdateAsync(ApplicationUser user);
     Task<bool> EmailExistsAsync(string email);
     Task<bool> UsernameExistsAsync(string username);
+    Task<List<ApplicationUser>> GetAllAsync();
+    Task<bool> SetAdminStatusAsync(string id, bool isAdmin);
+    Task<bool> UpdateUserProfileAsync(string id, string username, string email, string firstName, string lastName, string phone);
+    Task<bool> DeleteUserAsync(string id);
 }
