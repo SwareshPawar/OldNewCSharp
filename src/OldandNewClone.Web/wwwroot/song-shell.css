@@ -376,7 +376,8 @@
     .p2-tab-count {
         background: rgba(59,130,246,0.1); color: #3b82f6;
         border-radius: 8px; padding: 2px 8px;
-        font-size: 0.72rem, font-weight: 600;
+        font-size: 0.72rem;
+        font-weight: 600;
         margin-left: 6px;
     }
     .p2-body { flex: 1; overflow-y: auto; }
@@ -407,7 +408,7 @@
         border-radius: 50%;
         animation: shell-spin 0.7s linear infinite;
     }
-    @@keyframes shell-spin {
+    @keyframes shell-spin {
         to { transform: rotate(360deg); }
     }
 
@@ -659,7 +660,7 @@
         border-color: #6b7280;
         color: #f3f4f6;
     }
-    @@keyframes slideIn {
+    @keyframes slideIn {
         from { transform: translateX(100%); opacity: 0; }
         to { transform: translateX(0); opacity: 1; }
     }
@@ -668,7 +669,7 @@
         display: none;
     }
 
-    @@media (max-width: 700px) {
+    @media (max-width: 700px) {
         .shell {
             grid-template-columns: 1fr;
             grid-template-rows: 1fr;
@@ -1160,7 +1161,7 @@
         background-size: 400%;
         animation: loading 1.2s infinite;
     }
-    @@keyframes loading {
+    @keyframes loading {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
     }
